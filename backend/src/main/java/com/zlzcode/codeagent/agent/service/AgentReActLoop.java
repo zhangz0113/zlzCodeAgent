@@ -1,12 +1,11 @@
 package com.zlzcode.codeagent.agent.service;
 
-import com.zlzcode.codeagent.agent.contract.AgentLlmContract;
 import com.zlzcode.codeagent.agent.context.ReActContext;
 import com.zlzcode.codeagent.agent.dto.AgentEvent;
-import com.zlzcode.codeagent.agent.model.LlmRequest;
 import com.zlzcode.codeagent.agent.model.LlmToolCall;
 import com.zlzcode.codeagent.agent.model.LlmTurnResult;
 import com.zlzcode.codeagent.agent.stream.LlmTurnStreamProcessor;
+import com.zlzcode.codeagent.context.model.RunContextPlan;
 import com.zlzcode.codeagent.openai.client.OpenAiChatClient;
 import com.zlzcode.codeagent.openai.exception.OpenAiIntegrationException;
 import com.zlzcode.codeagent.tool.model.ApprovalRequired;
@@ -15,6 +14,8 @@ import com.zlzcode.codeagent.tool.model.ToolExecutionContext;
 import com.zlzcode.codeagent.tool.model.ToolOutcome;
 import com.zlzcode.codeagent.tool.registry.ToolRegistry;
 import org.reactivestreams.Publisher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -23,6 +24,8 @@ import java.util.List;
 
 @Component
 final class AgentReActLoop {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(AgentReActLoop.class);
 
     private final OpenAiChatClient openAiChatClient;
     private final ToolRegistry toolRegistry;
@@ -67,12 +70,12 @@ final class AgentReActLoop {
     }
 
     private Mono<LlmTurnResult> collectModelTurn(ReActContext context) {
+        RunContextPlan.AssembledRequest assembled = context.assembleModelRequest(
+                toolRegistry.modelToolDeclarations());
+        LOGGER.debug("LLM request composition: {}", assembled.composition());
         return turnStreamProcessor.collect(openAiChatClient.chat(
                 context.execution().options().openai(),
-                buildLlmRequest(
-                        context,
-                        context.messagesSnapshot(),
-                        toolRegistry.modelToolDeclarations())));
+                assembled.request()));
     }
 
     /*
@@ -190,17 +193,6 @@ final class AgentReActLoop {
         }
         return outcome.switchIfEmpty(Mono.error(new IllegalStateException(
                 "Tool approval coordinator returned no outcome")));
-    }
-
-    private LlmRequest buildLlmRequest(
-            ReActContext context,
-            List<com.zlzcode.codeagent.agent.model.LlmMessage> messages,
-            List<LlmRequest.ToolDeclaration> availableTools) {
-        return new LlmRequest(
-                context.execution().options().model(),
-                context.execution().options().reasoningEffort(),
-                messages,
-                availableTools);
     }
 
     private enum RunPhase {
