@@ -2,9 +2,11 @@ package com.zlzcode.codeagent.agent.context;
 
 import com.zlzcode.codeagent.agent.dto.AgentEvent;
 import com.zlzcode.codeagent.agent.model.LlmMessage;
+import com.zlzcode.codeagent.agent.model.LlmRequest;
 import com.zlzcode.codeagent.agent.model.LlmToolCall;
 import com.zlzcode.codeagent.agent.model.LlmTurnResult;
 import com.zlzcode.codeagent.agent.model.RunExecution;
+import com.zlzcode.codeagent.context.model.RunContextPlan;
 import com.zlzcode.codeagent.session.model.Session;
 import com.zlzcode.codeagent.tool.model.ToolOutcome;
 import com.zlzcode.codeagent.workspace.model.AuthorizedWorkspace;
@@ -22,6 +24,7 @@ public final class ReActContext {
 
     private final RunExecution execution;
     private final AuthorizedWorkspace workspace;
+    private final RunContextPlan requestPlan;
     private final long startedAtNanos;
     private final List<LlmMessage> messages;
     private final Set<String> knownCallIds = new HashSet<>();
@@ -36,11 +39,13 @@ public final class ReActContext {
     public ReActContext(
             RunExecution execution,
             AuthorizedWorkspace workspace,
-            List<LlmMessage> initialMessages,
+            RunContextPlan requestPlan,
             long startedAtNanos) {
         this.execution = Objects.requireNonNull(execution, "Run execution cannot be null");
         this.workspace = Objects.requireNonNull(workspace, "Authorized workspace cannot be null");
+        this.requestPlan = Objects.requireNonNull(requestPlan, "Run context plan cannot be null");
         this.startedAtNanos = startedAtNanos;
+        List<LlmMessage> initialMessages = requestPlan.initialMessages();
         if (initialMessages == null || initialMessages.isEmpty()) {
             throw new IllegalArgumentException("Agent run requires initial messages");
         }
@@ -63,6 +68,21 @@ public final class ReActContext {
 
     public List<LlmMessage> messagesSnapshot() {
         return List.copyOf(messages);
+    }
+
+    /*
+     * 背景：工具执行会持续扩展当前 Run 的模型可见消息，而固定材料的来源映射必须保持不变。
+     * 设计意图：由 ReActContext 提供当前唯一消息快照，再委托不可变计划同时形成真实请求和核查结果。
+     * 关键约束：不能绕过该入口直接在 ReActLoop 新建 LlmRequest；否则固定材料、动态工具消息和
+     * RequestComposition 可能使用不同快照，导致实际输入与核查记录分叉。
+     */
+    public RunContextPlan.AssembledRequest assembleModelRequest(
+            List<LlmRequest.ToolDeclaration> availableTools) {
+        return requestPlan.assemble(
+                messagesSnapshot(),
+                execution.options().model(),
+                execution.options().reasoningEffort(),
+                availableTools);
     }
 
     /*

@@ -10,8 +10,9 @@ import com.zlzcode.codeagent.agent.model.ApprovalRecord;
 import com.zlzcode.codeagent.agent.model.RunExecution;
 import com.zlzcode.codeagent.agent.model.RunRecord;
 import com.zlzcode.codeagent.agent.model.RunStatus;
-import com.zlzcode.codeagent.agent.history.ConversationHistoryBuilder;
 import com.zlzcode.codeagent.agent.store.RunStore;
+import com.zlzcode.codeagent.context.model.RunContextPlan;
+import com.zlzcode.codeagent.context.service.ModelRequestAssembler;
 import com.zlzcode.codeagent.session.model.SessionRunSnapshot;
 import com.zlzcode.codeagent.session.service.SessionService;
 import com.zlzcode.codeagent.tool.model.MutationPlan;
@@ -50,7 +51,7 @@ final class AgentRunExecutor {
     private final ToolRegistry toolRegistry;
     private final ApprovalService approvalService;
     private final AgentRunExceptionMapper exceptionMapper;
-    private final ConversationHistoryBuilder historyBuilder;
+    private final ModelRequestAssembler requestAssembler;
     private final SessionService sessionService;
     private final RunStore runStore;
     private final AgentRunScheduler scheduler;
@@ -68,7 +69,7 @@ final class AgentRunExecutor {
             ToolRegistry toolRegistry,
             ApprovalService approvalService,
             AgentRunExceptionMapper exceptionMapper,
-            ConversationHistoryBuilder historyBuilder,
+            ModelRequestAssembler requestAssembler,
             SessionService sessionService,
             RunStore runStore,
             AgentRunScheduler scheduler,
@@ -79,7 +80,7 @@ final class AgentRunExecutor {
         this.toolRegistry = toolRegistry;
         this.approvalService = approvalService;
         this.exceptionMapper = exceptionMapper;
-        this.historyBuilder = historyBuilder;
+        this.requestAssembler = requestAssembler;
         this.sessionService = sessionService;
         this.runStore = runStore;
         this.scheduler = scheduler;
@@ -129,13 +130,10 @@ final class AgentRunExecutor {
                     return Mono.fromCallable(() -> workspaceRegistry.resolve(sessionRun.workspaceId()))
                             .subscribeOn(Schedulers.boundedElastic())
                             .flatMap(workspace -> {
-                                List<com.zlzcode.codeagent.agent.model.LlmMessage> initialMessages =
-                                        historyBuilder.build(
-                                                AgentLlmContract.systemPrompt(),
-                                                sessionRun.completedHistory(),
-                                                sessionRun.prompt());
+                                RunContextPlan requestPlan = requestAssembler.prepare(
+                                        workspace, sessionRun, AgentLlmContract.systemPrompt());
                                 ReActContext context = new ReActContext(
-                                        execution, workspace, initialMessages, startedAt);
+                                        execution, workspace, requestPlan, startedAt);
                                 ToolApprovalCoordinator approvalCoordinator =
                                         (toolContext, plan) -> awaitApprovalOutcome(
                                                 execution, active, toolContext, plan);
