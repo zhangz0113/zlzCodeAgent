@@ -3,13 +3,15 @@ package com.zlzcode.codeagent.context.model;
 import com.zlzcode.codeagent.agent.model.LlmMessage;
 import com.zlzcode.codeagent.agent.model.LlmRequest;
 import com.zlzcode.codeagent.agent.model.LlmToolCall;
+import com.zlzcode.codeagent.context.model.ContextReduction.CapacityReport;
+import com.zlzcode.codeagent.context.model.ContextReduction.ReductionRecord;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 /**
- * 一次 Run 内固定的模型请求组装计划。
+ * 一次 Run 内固定的模型请求材料计划。
  */
 public final class RunContextPlan {
 
@@ -33,14 +35,14 @@ public final class RunContextPlan {
     }
 
     /*
-     * 背景：同一 Run 的模型可见消息会随工具调用增长，但固定项目材料只能准备一次，
-     * 同时调试证据必须准确描述真正发送的请求。
-     * 设计意图：校验当前消息仍以初始快照为前缀，再从同一组 ContextEntry 同时产生
-     * LlmRequest 与 RequestComposition，避免请求和核查逻辑各自重建一套顺序。
-     * 关键约束：当前消息只能在初始快照之后追加；若允许替换、删减或错序，来源映射会
-     * 指向错误正文，日志将无法证明模型实际看见了什么。
+     * 背景：Phase 1 需要从完整消息账本派生容量内的请求视图，但 Phase 0 的来源映射
+     * 仍必须准确描述当前 Run 真正积累的消息。
+     * 设计意图：计划只形成带来源的完整 RequestDraft，缩减和最终请求生成统一交给
+     * Context Reduction Module，避免原始账本与模型可见表示互相覆盖。
+     * 关键约束：当前消息只能在初始快照之后追加；若允许替换、删减或错序，Module
+     * 将无法证明裁剪前的来源和工具关联，协议核查也会失去依据。
      */
-    public AssembledRequest assemble(
+    public RequestDraft draft(
             List<LlmMessage> currentMessages,
             String model,
             String reasoningEffort,
@@ -54,16 +56,12 @@ public final class RunContextPlan {
         for (int index = initialEntries.size(); index < messages.size(); index++) {
             entries.add(currentRunEntry(messages.get(index), index - initialEntries.size()));
         }
-
-        List<LlmRequest.ToolDeclaration> tools = availableTools == null
-                ? List.of() : List.copyOf(availableTools);
-        List<LlmMessage> requestMessages = entries.stream().map(ContextEntry::message).toList();
-        LlmRequest request = new LlmRequest(model, reasoningEffort, requestMessages, tools);
-        RequestComposition composition = new RequestComposition(
+        return new RequestDraft(
                 runId,
-                toMessageEntries(entries),
-                tools.stream().map(LlmRequest.ToolDeclaration::name).toList());
-        return new AssembledRequest(request, composition);
+                model,
+                reasoningEffort,
+                entries,
+                availableTools == null ? List.of() : availableTools);
     }
 
     private void validateInitialPrefix(List<LlmMessage> messages) {
@@ -86,56 +84,6 @@ public final class RunContextPlan {
                 "run:" + runId + "/message:" + dynamicIndex,
                 MaterialScope.RUN,
                 relationIds(message));
-    }
-
-    private List<RequestComposition.MessageEntry> toMessageEntries(List<ContextEntry> entries) {
-        List<RequestComposition.MessageEntry> result = new ArrayList<>(entries.size());
-        for (int index = 0; index < entries.size(); index++) {
-            ContextEntry entry = entries.get(index);
-            result.add(new RequestComposition.MessageEntry(
-                    index,
-                    entry.kind(),
-                    entry.source(),
-                    entry.scope(),
-                    messageType(entry.message()),
-                    contentChars(entry.message()),
-                    entry.relationIds()));
-        }
-        return List.copyOf(result);
-    }
-
-    private MessageType messageType(LlmMessage message) {
-        if (message instanceof LlmMessage.TextMessage text) {
-            return switch (text.role()) {
-                case SYSTEM -> MessageType.SYSTEM;
-                case USER -> MessageType.USER;
-                case ASSISTANT -> MessageType.ASSISTANT;
-            };
-        }
-        if (message instanceof LlmMessage.AssistantToolCallsMessage) {
-            return MessageType.ASSISTANT_TOOL_CALLS;
-        }
-        return MessageType.TOOL_RESULT;
-    }
-
-    private int contentChars(LlmMessage message) {
-        long chars;
-        if (message instanceof LlmMessage.TextMessage text) {
-            chars = text.content().length();
-        } else if (message instanceof LlmMessage.AssistantToolCallsMessage assistant) {
-            chars = length(assistant.content()) + length(assistant.hiddenReasoning());
-            for (LlmToolCall call : assistant.toolCalls()) {
-                chars += (long) call.id().length() + call.name().length() + length(call.arguments());
-            }
-        } else {
-            LlmMessage.ToolResultMessage result = (LlmMessage.ToolResultMessage) message;
-            chars = (long) result.toolCallId().length() + result.content().length();
-        }
-        return chars > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) chars;
-    }
-
-    private int length(String value) {
-        return value == null ? 0 : value.length();
     }
 
     private static List<String> relationIds(LlmMessage message) {
@@ -188,6 +136,29 @@ public final class RunContextPlan {
             Objects.requireNonNull(scope, "Context entry scope cannot be null");
             relationIds = relationIds == null ? List.of() : List.copyOf(relationIds);
         }
+
+        public ContextEntry withMessage(LlmMessage value) {
+            return new ContextEntry(value, kind, source, scope, relationIds);
+        }
+    }
+
+    public record RequestDraft(
+            String runId,
+            String model,
+            String reasoningEffort,
+            List<ContextEntry> entries,
+            List<LlmRequest.ToolDeclaration> availableTools) {
+
+        public RequestDraft {
+            if (runId == null || runId.isBlank()) {
+                throw new IllegalArgumentException("Request draft Run ID cannot be blank");
+            }
+            if (model == null || model.isBlank()) {
+                throw new IllegalArgumentException("Request draft model cannot be blank");
+            }
+            entries = List.copyOf(Objects.requireNonNull(entries, "Request draft entries cannot be null"));
+            availableTools = availableTools == null ? List.of() : List.copyOf(availableTools);
+        }
     }
 
     public record AssembledRequest(
@@ -203,7 +174,9 @@ public final class RunContextPlan {
     public record RequestComposition(
             String runId,
             List<MessageEntry> messages,
-            List<String> availableTools) {
+            List<String> availableTools,
+            CapacityReport capacity,
+            List<ReductionRecord> reductions) {
 
         public RequestComposition {
             if (runId == null || runId.isBlank()) {
@@ -212,6 +185,8 @@ public final class RunContextPlan {
             messages = List.copyOf(Objects.requireNonNull(
                     messages, "Composition messages cannot be null"));
             availableTools = availableTools == null ? List.of() : List.copyOf(availableTools);
+            Objects.requireNonNull(capacity, "Composition capacity cannot be null");
+            reductions = reductions == null ? List.of() : List.copyOf(reductions);
         }
 
         public record MessageEntry(

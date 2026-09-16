@@ -7,6 +7,7 @@ import com.zlzcode.codeagent.agent.model.LlmToolCall;
 import com.zlzcode.codeagent.agent.model.LlmTurnResult;
 import com.zlzcode.codeagent.agent.model.RunExecution;
 import com.zlzcode.codeagent.context.model.RunContextPlan;
+import com.zlzcode.codeagent.context.model.ContextReduction.ReductionScope;
 import com.zlzcode.codeagent.session.model.Session;
 import com.zlzcode.codeagent.tool.model.ToolOutcome;
 import com.zlzcode.codeagent.workspace.model.AuthorizedWorkspace;
@@ -72,17 +73,22 @@ public final class ReActContext {
 
     /*
      * 背景：工具执行会持续扩展当前 Run 的模型可见消息，而固定材料的来源映射必须保持不变。
-     * 设计意图：由 ReActContext 提供当前唯一消息快照，再委托不可变计划同时形成真实请求和核查结果。
-     * 关键约束：不能绕过该入口直接在 ReActLoop 新建 LlmRequest；否则固定材料、动态工具消息和
-     * RequestComposition 可能使用不同快照，导致实际输入与核查记录分叉。
+     * 设计意图：由 ReActContext 提供当前唯一消息快照，再委托不可变计划形成带来源的完整草稿，
+     * 真实请求和核查结果随后由 Context Reduction Module 从同一草稿生成。
+     * 关键约束：不能绕过该入口直接在 ReActLoop 拼消息；否则固定材料、动态工具消息和容量处理
+     * 可能使用不同快照，导致实际输入与核查记录分叉。
      */
-    public RunContextPlan.AssembledRequest assembleModelRequest(
+    public RunContextPlan.RequestDraft modelRequestDraft(
             List<LlmRequest.ToolDeclaration> availableTools) {
-        return requestPlan.assemble(
+        return requestPlan.draft(
                 messagesSnapshot(),
                 execution.options().model(),
                 execution.options().reasoningEffort(),
                 availableTools);
+    }
+
+    public ReductionScope reductionScope() {
+        return new ReductionScope(execution.sessionId(), execution.runId());
     }
 
     /*

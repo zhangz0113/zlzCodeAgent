@@ -6,6 +6,7 @@ import com.zlzcode.codeagent.tool.definition.GrepToolDefinition;
 import com.zlzcode.codeagent.tool.definition.MkdirToolDefinition;
 import com.zlzcode.codeagent.tool.definition.MoveToolDefinition;
 import com.zlzcode.codeagent.tool.definition.ReadToolDefinition;
+import com.zlzcode.codeagent.tool.definition.ReadToolResultDefinition;
 import com.zlzcode.codeagent.tool.definition.WorkspaceOverviewToolDefinition;
 import com.zlzcode.codeagent.tool.definition.WriteToolDefinition;
 import com.zlzcode.codeagent.tool.registry.ToolRegistration;
@@ -15,6 +16,7 @@ import com.zlzcode.codeagent.tool.service.GrepService;
 import com.zlzcode.codeagent.tool.service.MkdirService;
 import com.zlzcode.codeagent.tool.service.MoveService;
 import com.zlzcode.codeagent.tool.service.ReadService;
+import com.zlzcode.codeagent.tool.service.ReadToolResultService;
 import com.zlzcode.codeagent.tool.service.WorkspaceOverviewService;
 import com.zlzcode.codeagent.tool.service.WriteService;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -27,6 +29,13 @@ public class ToolConfiguration {
 
     @Bean
     ToolRegistration readRegistration(ReadToolDefinition definition, ReadService handler) {
+        return new ToolRegistration(definition, handler, true);
+    }
+
+    @Bean
+    ToolRegistration readToolResultRegistration(
+            ReadToolResultDefinition definition,
+            ReadToolResultService handler) {
         return new ToolRegistration(definition, handler, true);
     }
 
