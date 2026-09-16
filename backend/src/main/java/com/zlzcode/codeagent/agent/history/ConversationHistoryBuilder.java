@@ -12,10 +12,6 @@ import java.util.List;
 @Component
 public final class ConversationHistoryBuilder {
 
-    private static final int MAX_MESSAGES = 40;
-    private static final int MAX_MESSAGE_CHARS = 100_000;
-    private static final int MAX_TOTAL_CHARS = 120_000;
-
     public List<LlmMessage> build(
             String systemPolicy,
             List<Session.Turn> completedTurns,
@@ -25,7 +21,11 @@ public final class ConversationHistoryBuilder {
             throw invalid("Agent 初始消息无效");
         }
 
-        List<Session.Turn> history = selectHistory(completedTurns);
+        List<Session.Turn> history = (completedTurns == null ? List.<Session.Turn>of() : completedTurns)
+                .stream()
+                .filter(turn -> turn.state() == Session.TurnState.COMPLETED
+                        && turn.assistant() != null)
+                .toList();
         List<LlmMessage> messages = new ArrayList<>();
         messages.add(new LlmMessage.TextMessage(LlmMessage.MessageRole.SYSTEM, systemPolicy));
 
@@ -54,33 +54,6 @@ public final class ConversationHistoryBuilder {
 
         messages.add(new LlmMessage.TextMessage(LlmMessage.MessageRole.USER, currentPrompt));
         return messages;
-    }
-
-    private List<Session.Turn> selectHistory(List<Session.Turn> turns) {
-        List<Session.Turn> source = turns == null ? List.of() : turns;
-        List<Session.Turn> selected = new ArrayList<>();
-        long totalChars = 0L;
-        for (int index = source.size() - 1; index >= 0; index--) {
-            Session.Turn turn = source.get(index);
-            if (turn.state() != Session.TurnState.COMPLETED || turn.assistant() == null) {
-                continue;
-            }
-            long turnChars = turn.user().content().length() + turn.assistant().content().length();
-            for (Session.ToolHistory tool : turn.assistant().toolHistory()) {
-                turnChars += (long) tool.name().length()
-                        + tool.arguments().length()
-                        + tool.result().length();
-            }
-            if (turn.user().content().length() > MAX_MESSAGE_CHARS
-                    || turn.assistant().content().length() > MAX_MESSAGE_CHARS
-                    || selected.size() * 2 + 2 > MAX_MESSAGES
-                    || totalChars + turnChars > MAX_TOTAL_CHARS) {
-                break;
-            }
-            selected.addFirst(turn);
-            totalChars += turnChars;
-        }
-        return selected;
     }
 
     private RequestContractException invalid(String message) {

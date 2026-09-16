@@ -33,7 +33,6 @@ public record ToolProperties(
             @Positive @DefaultValue("2000") int defaultLimit,
             @Positive @DefaultValue("2000") int maxLimit,
             @Positive @DefaultValue("2000") int maxLineLength,
-            @Positive @DefaultValue("20000") int maxResultChars,
             @Positive @DefaultValue("10485760") long maxFileBytes) {
 
         @AssertTrue(message = "codeagent.tool.read.default-limit must not exceed codeagent.tool.read.max-limit")

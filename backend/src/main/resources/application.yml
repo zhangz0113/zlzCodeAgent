@@ -20,6 +20,14 @@ logging:
       total-size-cap: 50MB
 
 codeagent:
+  context:
+    context-window-tokens: 32768
+    reserved-output-tokens: 4096
+    spill-threshold-chars: 12000
+    compact-tool-result-chars: 2000
+    compact-assistant-chars: 6000
+    max-retrieval-chars: 8000
+    result-directory: ${CODEAGENT_CONTEXT_RESULT_DIRECTORY:../runs/context-results}
   session:
     directory: ${CODEAGENT_SESSION_DIRECTORY:../sessions}
   workspace:

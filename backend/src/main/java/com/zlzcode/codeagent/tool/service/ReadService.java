@@ -92,8 +92,8 @@ public class ReadService implements ToolHandler {
             int startLine = window.isEmpty() ? 0 : arguments.offset();
             int endLine = window.isEmpty() ? 0 : arguments.offset() + window.size() - 1;
             String relative = pathGuard.relativePath(context.workspace().root(), file);
-            ReadResult result = fit(new ReadResult(true, relative, startLine, endLine,
-                    lines.size(), content, truncated), limits.maxResultChars());
+            ReadResult result = new ReadResult(true, relative, startLine, endLine,
+                    lines.size(), content, truncated);
             ToolOutcome outcome = new ToolOutcome(true, encode(result), presentation(result));
             observationService.record(context, relative, bytes);
             return outcome;
@@ -135,28 +135,6 @@ public class ReadService implements ToolHandler {
         return "\n";
     }
 
-    private ReadResult fit(ReadResult result, int maxChars) {
-        if (encodedLength(result) <= maxChars) return result;
-        int low = 0;
-        int high = result.content().length();
-        String content = "";
-        while (low <= high) {
-            int middle = (low + high) >>> 1;
-            ReadResult candidate = result.withContent(result.content().substring(0, middle), true);
-            if (encodedLength(candidate) <= maxChars) {
-                content = candidate.content();
-                low = middle + 1;
-            } else {
-                high = middle - 1;
-            }
-        }
-        return result.withContent(content, true);
-    }
-
-    private int encodedLength(ReadResult result) {
-        return encode(result).length();
-    }
-
     private String encode(Object value) {
         try {
             return objectMapper.writeValueAsString(value);
@@ -186,9 +164,5 @@ public class ReadService implements ToolHandler {
             int totalLines,
             String content,
             boolean truncated) {
-
-        ReadResult withContent(String value, boolean truncated) {
-            return new ReadResult(ok, path, startLine, endLine, totalLines, value, truncated);
-        }
     }
 }

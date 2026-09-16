@@ -2,6 +2,7 @@ package com.zlzcode.codeagent.agent.error;
 
 import com.zlzcode.codeagent.agent.dto.AgentEvent;
 import com.zlzcode.codeagent.agent.exception.ApprovalException;
+import com.zlzcode.codeagent.context.exception.ContextReductionException;
 import com.zlzcode.codeagent.openai.exception.OpenAiIntegrationException;
 import com.zlzcode.codeagent.session.exception.SessionException;
 import com.zlzcode.codeagent.workspace.exception.WorkspaceRegistryException;
@@ -40,6 +41,12 @@ public final class AgentRunExceptionMapper {
                     approvalException.getMessage(),
                     approvalException.code(),
                     approvalException.retryable()));
+        }
+        if (exception instanceof ContextReductionException contextException) {
+            return Mono.just(new AgentEvent.Error(
+                    contextException.safeMessage(),
+                    contextException.code(),
+                    contextException.retryable()));
         }
         return Mono.error(exception);
     }

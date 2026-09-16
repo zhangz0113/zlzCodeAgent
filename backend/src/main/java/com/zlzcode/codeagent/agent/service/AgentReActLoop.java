@@ -6,6 +6,9 @@ import com.zlzcode.codeagent.agent.model.LlmToolCall;
 import com.zlzcode.codeagent.agent.model.LlmTurnResult;
 import com.zlzcode.codeagent.agent.stream.LlmTurnStreamProcessor;
 import com.zlzcode.codeagent.context.model.RunContextPlan;
+import com.zlzcode.codeagent.context.model.ContextReduction.PreparedToolResult;
+import com.zlzcode.codeagent.context.model.ContextReduction.ToolResultMaterial;
+import com.zlzcode.codeagent.context.service.ContextReductionModule;
 import com.zlzcode.codeagent.openai.client.OpenAiChatClient;
 import com.zlzcode.codeagent.openai.exception.OpenAiIntegrationException;
 import com.zlzcode.codeagent.tool.model.ApprovalRequired;
@@ -30,14 +33,17 @@ final class AgentReActLoop {
     private final OpenAiChatClient openAiChatClient;
     private final ToolRegistry toolRegistry;
     private final LlmTurnStreamProcessor turnStreamProcessor;
+    private final ContextReductionModule contextReduction;
 
     AgentReActLoop(
             OpenAiChatClient openAiChatClient,
             ToolRegistry toolRegistry,
-            LlmTurnStreamProcessor turnStreamProcessor) {
+            LlmTurnStreamProcessor turnStreamProcessor,
+            ContextReductionModule contextReduction) {
         this.openAiChatClient = openAiChatClient;
         this.toolRegistry = toolRegistry;
         this.turnStreamProcessor = turnStreamProcessor;
+        this.contextReduction = contextReduction;
     }
 
     Flux<AgentEvent> run(
@@ -70,8 +76,9 @@ final class AgentReActLoop {
     }
 
     private Mono<LlmTurnResult> collectModelTurn(ReActContext context) {
-        RunContextPlan.AssembledRequest assembled = context.assembleModelRequest(
-                toolRegistry.modelToolDeclarations());
+        RunContextPlan.AssembledRequest assembled = contextReduction.reduceRequest(
+                context.reductionScope(),
+                context.modelRequestDraft(toolRegistry.modelToolDeclarations()));
         LOGGER.debug("LLM request composition: {}", assembled.composition());
         return turnStreamProcessor.collect(openAiChatClient.chat(
                 context.execution().options().openai(),
@@ -157,6 +164,7 @@ final class AgentReActLoop {
             ToolApprovalCoordinator approvalCoordinator) {
         LlmToolCall call = state.activeToolCall();
         ToolExecutionContext executionContext = new ToolExecutionContext(
+                state.context().execution().sessionId(),
                 state.context().execution().runId(),
                 call.id(),
                 state.context().workspace());
@@ -171,13 +179,24 @@ final class AgentReActLoop {
                             approvalCoordinator.awaitOutcome(executionContext, approval.plan()));
                 })
                 .map(outcome -> {
-                    state.context().recordToolExecution(call, outcome);
+                    PreparedToolResult prepared = contextReduction.prepareToolResult(
+                            state.context().reductionScope(),
+                            new ToolResultMaterial(
+                                    call.name(),
+                                    call.id(),
+                                    outcome.ok(),
+                                    outcome.modelContent()));
+                    ToolOutcome visibleOutcome = new ToolOutcome(
+                            outcome.ok(),
+                            prepared.modelContent(),
+                            outcome.presentation());
+                    state.context().recordToolExecution(call, visibleOutcome);
                     return state.withToolOutcomeEvents(
                             RunPhase.TOOL_RESULT_READY,
                             List.of(new AgentEvent.ToolFinished(
                                     call.id(),
-                                    outcome.ok() ? "completed" : "failed",
-                                    outcome.presentation())));
+                                    visibleOutcome.ok() ? "completed" : "failed",
+                                    visibleOutcome.presentation())));
                 });
     }
 
