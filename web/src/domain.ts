@@ -94,6 +94,7 @@ export interface Message {
   statusLabel?: string
   errorCode?: string
   errorRetryable?: boolean
+  processNotes?: string[]
   tools?: ToolStep[]
   toolHistory?: ConversationToolHistory[]
   metrics?: RunMetrics
@@ -131,6 +132,7 @@ export type AgentEvent =
       code?: string
     }
   | { type: 'text_delta'; delta: string }
+  | { type: 'assistant_step'; content: string }
   | {
       type: 'completed'
       metrics: RunMetrics
@@ -264,6 +266,11 @@ export function applyAgentEvent(message: Message, event: AgentEvent): Message {
               }
             : tool,
         ),
+      }
+    case 'assistant_step':
+      return {
+        ...message,
+        processNotes: [...(message.processNotes ?? []), event.content],
       }
     case 'text_delta':
       return { ...message, content: message.content + event.delta }

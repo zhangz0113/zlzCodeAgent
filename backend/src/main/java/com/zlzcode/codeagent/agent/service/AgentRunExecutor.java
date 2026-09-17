@@ -134,6 +134,7 @@ final class AgentRunExecutor {
                                         workspace, sessionRun, AgentLlmContract.systemPrompt());
                                 ReActContext context = new ReActContext(
                                         execution, workspace, requestPlan, startedAt);
+                                active.bindContext(context);
                                 ToolApprovalCoordinator approvalCoordinator =
                                         (toolContext, plan) -> awaitApprovalOutcome(
                                                 execution, active, toolContext, plan);
@@ -271,8 +272,7 @@ final class AgentRunExecutor {
         ReActContext.Completion completion = context.completion();
         return Mono.fromRunnable(() -> sessionService.completeRun(
                         sessionRun,
-                        completion.finalAnswer(),
-                        completion.sessionToolHistory()))
+                        completion.sessionRecord()))
                 .doOnSuccess(ignored -> runStore.succeed(
                         execution.runId(),
                         completion.finalAnswer(),
@@ -329,6 +329,7 @@ final class AgentRunExecutor {
         LOGGER.error(
                 "Agent Run failed: runId={}, sessionId={}, code={}",
                 active.runId, active.sessionId, event.code(), error);
+        persistIncompleteSession(active);
         try {
             runStore.fail(active.runId, event.code(), event.message(), event.retryable());
         } catch (RuntimeException persistenceError) {
@@ -337,6 +338,21 @@ final class AgentRunExecutor {
                     active.runId, active.sessionId, event.code(), persistenceError);
         }
         active.emitTerminal(event);
+    }
+
+    private void persistIncompleteSession(ActiveRun active) {
+        ReActContext context = active.context;
+        if (context == null || !context.hasSessionActivity()) {
+            return;
+        }
+        try {
+            sessionService.recordIncompleteRun(
+                    active.sessionId, active.runId, context.sessionAssistantRecord());
+        } catch (RuntimeException persistenceError) {
+            LOGGER.error(
+                    "Agent incomplete Session record persistence failed: runId={}, sessionId={}",
+                    active.runId, active.sessionId, persistenceError);
+        }
     }
 
     /*
@@ -388,6 +404,7 @@ final class AgentRunExecutor {
         private final AtomicBoolean terminalEventEmitted = new AtomicBoolean();
         private volatile ApprovalProgress approvalProgress;
         private volatile AgentEvent.Error failureEvent;
+        private volatile ReActContext context;
 
         private ActiveRun(String sessionId, String runId) {
             this.sessionId = sessionId;
@@ -411,6 +428,13 @@ final class AgentRunExecutor {
 
         private void rememberFailure(AgentEvent.Error event) {
             failureEvent = event;
+        }
+
+        private void bindContext(ReActContext nextContext) {
+            if (context != null) {
+                throw new IllegalStateException("Run context was already bound");
+            }
+            context = nextContext;
         }
 
         private synchronized void beginApproval(ApprovalRecord approval) {

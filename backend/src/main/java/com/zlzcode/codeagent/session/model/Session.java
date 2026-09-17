@@ -30,11 +30,37 @@ public record Session(
     public record UserMessage(String content) {
     }
 
-    public record AssistantMessage(String content, List<ToolHistory> toolHistory) {
+    public record AssistantMessage(String content, List<ToolRound> toolRounds) {
 
         public AssistantMessage {
-            toolHistory = toolHistory == null ? List.of() : List.copyOf(toolHistory);
+            toolRounds = toolRounds == null ? List.of() : List.copyOf(toolRounds);
         }
+
+        public List<ToolHistory> toolHistory() {
+            return toolRounds.stream()
+                    .flatMap(round -> round.calls().stream())
+                    .filter(call -> call.result() != null)
+                    .map(call -> new ToolHistory(
+                            call.name(), call.arguments(), call.result().modelContent()))
+                    .toList();
+        }
+    }
+
+    public record ToolRound(String assistantContent, List<ToolCall> calls) {
+
+        public ToolRound {
+            calls = calls == null ? List.of() : List.copyOf(calls);
+        }
+    }
+
+    public record ToolCall(String name, String arguments, ToolResult result) {
+    }
+
+    public record ToolResult(
+            boolean success,
+            String modelContent,
+            String presentation,
+            String resultRef) {
     }
 
     public record ToolHistory(String name, String arguments, String result) {

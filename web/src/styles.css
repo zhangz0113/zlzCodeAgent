@@ -859,6 +859,51 @@ button:disabled {
   to { transform: rotate(360deg); }
 }
 
+.processPanel {
+  margin: 9px 0 12px;
+  border-left: 2px solid var(--border-strong);
+  padding-left: 10px;
+}
+
+.processPanel summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 12px;
+  list-style: none;
+}
+
+.processPanel summary::-webkit-details-marker {
+  display: none;
+}
+
+.processChevron {
+  transition: transform 140ms ease;
+}
+
+.processPanel[open] .processChevron {
+  transform: rotate(90deg);
+}
+
+.processNotes {
+  display: grid;
+  gap: 7px;
+  margin-top: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.processNote > :first-child {
+  margin-top: 0;
+}
+
+.processNote > :last-child {
+  margin-bottom: 0;
+}
+
 .toolList {
   display: grid;
   gap: 7px;

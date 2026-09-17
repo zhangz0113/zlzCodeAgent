@@ -148,6 +148,22 @@ function AssistantMessage({
             <span>{message.statusLabel ?? '正在运行'}</span>
           </div>
         )}
+        {(message.processNotes ?? []).length > 0 && (
+          <details className="processPanel" open={message.state === 'running'}>
+            <summary>
+              <Route size={15} />
+              <span>执行过程</span>
+              <ChevronRight className="processChevron" size={15} />
+            </summary>
+            <div className="processNotes">
+              {message.processNotes?.map((note, index) => (
+                <div className="processNote" key={`${message.id}-process-${index}`}>
+                  <AssistantMarkdown content={note} />
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
         {(message.tools ?? []).length > 0 && (
           <div className="toolList">
             {message.tools?.map(tool => (

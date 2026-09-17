@@ -84,8 +84,7 @@ public final class SessionService {
 
     public void completeRun(
             SessionRunSnapshot run,
-            String assistantContent,
-            List<Session.ToolHistory> toolHistory) {
+            Session.AssistantMessage assistant) {
         Session current = sessionStore.read(run.sessionId());
         List<Session.Turn> updatedTurns = new ArrayList<>(current.turns().size());
         boolean found = false;
@@ -103,11 +102,49 @@ public final class SessionService {
                     Session.TurnState.COMPLETED,
                     turn.createdAt(),
                     turn.user(),
-                    new Session.AssistantMessage(assistantContent, toolHistory)));
+                    assistant));
             found = true;
         }
         if (!found) {
             throw SessionException.runNotFound();
+        }
+        Instant now = clock.instant();
+        sessionStore.save(new Session(
+                current.sessionId(), current.workspaceId(), current.createdAt(), now, updatedTurns));
+    }
+
+    /*
+     * 背景：Run 失败前可能已经读取证据或执行工具，这些已发生事实不能因最终状态失败而全部消失。
+     * 设计意图：把当前可用的语义记录附着到原 INCOMPLETE Turn，同时继续由 RunStore 独立保存 FAILED 生命周期状态。
+     * 关键约束：不能把 Turn 标记为 COMPLETED，也不能覆盖已经成功收口的 Turn；否则失败探索会进入后续模型历史，或 RunStore 写入故障会破坏已完成会话。
+     */
+    public void recordIncompleteRun(
+            String sessionId,
+            String runId,
+            Session.AssistantMessage assistant) {
+        Session current = sessionStore.read(sessionId);
+        List<Session.Turn> updatedTurns = new ArrayList<>(current.turns().size());
+        boolean found = false;
+        boolean changed = false;
+        for (Session.Turn turn : current.turns()) {
+            if (!turn.runId().equals(runId)) {
+                updatedTurns.add(turn);
+                continue;
+            }
+            found = true;
+            if (turn.state() == Session.TurnState.COMPLETED) {
+                updatedTurns.add(turn);
+                continue;
+            }
+            updatedTurns.add(new Session.Turn(
+                    turn.runId(), turn.state(), turn.createdAt(), turn.user(), assistant));
+            changed = true;
+        }
+        if (!found) {
+            throw SessionException.runNotFound();
+        }
+        if (!changed) {
+            return;
         }
         Instant now = clock.instant();
         sessionStore.save(new Session(
