@@ -104,6 +104,8 @@ export function isAgentEvent(value: unknown): value is AgentEvent {
         && isOptionalString(value.code)
     case 'text_delta':
       return isString(value.delta)
+    case 'assistant_step':
+      return isString(value.content) && value.content.length > 0
     case 'completed':
       return isRunMetrics(value.metrics) && isToolHistory(value.toolHistory)
     case 'error':
