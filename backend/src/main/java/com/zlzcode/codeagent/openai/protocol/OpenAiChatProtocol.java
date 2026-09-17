@@ -30,6 +30,7 @@ public class OpenAiChatProtocol {
     private static final String FIELD_TOOL_CHOICE = "tool_choice";
     private static final String FIELD_STREAM = "stream";
     private static final String FIELD_REASONING_EFFORT = "reasoning_effort";
+    private static final String FIELD_MAX_TOKENS = "max_tokens";
     private static final String FIELD_ROLE = "role";
     private static final String FIELD_CONTENT = "content";
     private static final String FIELD_REASONING_CONTENT = "reasoning_content";
@@ -164,6 +165,9 @@ public class OpenAiChatProtocol {
         body.put(FIELD_MODEL, request.model());
         if (request.reasoningEffort() != null) {
             body.put(FIELD_REASONING_EFFORT, request.reasoningEffort());
+        }
+        if (request.maxOutputTokens() != null) {
+            body.put(FIELD_MAX_TOKENS, request.maxOutputTokens());
         }
         return body;
     }

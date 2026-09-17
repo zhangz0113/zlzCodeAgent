@@ -10,6 +10,7 @@ public record SessionRunSnapshot(
         String runId,
         String workspaceId,
         String prompt,
+        Session.HistoryCheckpoint historyCheckpoint,
         List<Session.Turn> completedHistory) {
 
     public SessionRunSnapshot {

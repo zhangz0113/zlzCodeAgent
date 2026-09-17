@@ -12,25 +12,25 @@ import java.util.List;
 @Component
 public final class ConversationHistoryBuilder {
 
-    public List<LlmMessage> build(
-            String systemPolicy,
+    public List<LlmMessage> projectTurns(
             List<Session.Turn> completedTurns,
-            String currentPrompt) {
-        if (systemPolicy == null || systemPolicy.isBlank()
-                || currentPrompt == null || currentPrompt.isBlank()) {
-            throw invalid("Agent 初始消息无效");
+            String callIdPrefix) {
+        if (callIdPrefix == null || callIdPrefix.isBlank()) {
+            throw invalid("历史工具调用前缀无效");
         }
-
-        List<Session.Turn> history = (completedTurns == null ? List.<Session.Turn>of() : completedTurns)
-                .stream()
-                .filter(turn -> turn.state() == Session.TurnState.COMPLETED
-                        && turn.assistant() != null)
-                .toList();
+        List<Session.Turn> history = completedTurns == null
+                ? List.of()
+                : List.copyOf(completedTurns);
         List<LlmMessage> messages = new ArrayList<>();
-        messages.add(new LlmMessage.TextMessage(LlmMessage.MessageRole.SYSTEM, systemPolicy));
 
         for (int turnIndex = 0; turnIndex < history.size(); turnIndex++) {
             Session.Turn turn = history.get(turnIndex);
+            if (turn == null
+                    || turn.state() != Session.TurnState.COMPLETED
+                    || turn.user() == null
+                    || turn.assistant() == null) {
+                throw invalid("历史 Turn 必须完整完成");
+            }
             messages.add(new LlmMessage.TextMessage(
                     LlmMessage.MessageRole.USER, turn.user().content()));
             /*
@@ -45,7 +45,8 @@ public final class ConversationHistoryBuilder {
                 List<LlmToolCall> calls = new ArrayList<>(round.calls().size());
                 for (int callIndex = 0; callIndex < round.calls().size(); callIndex++) {
                     Session.ToolCall storedCall = round.calls().get(callIndex);
-                    String callId = "history_" + turnIndex + "_" + roundIndex + "_" + callIndex;
+                    String callId = callIdPrefix + "_" + turnIndex + "_"
+                            + roundIndex + "_" + callIndex;
                     calls.add(new LlmToolCall(
                             callId, storedCall.name(), storedCall.arguments()));
                 }
@@ -53,7 +54,8 @@ public final class ConversationHistoryBuilder {
                         round.assistantContent(), null, calls));
                 for (int callIndex = 0; callIndex < round.calls().size(); callIndex++) {
                     Session.ToolCall storedCall = round.calls().get(callIndex);
-                    String callId = "history_" + turnIndex + "_" + roundIndex + "_" + callIndex;
+                    String callId = callIdPrefix + "_" + turnIndex + "_"
+                            + roundIndex + "_" + callIndex;
                     messages.add(new LlmMessage.ToolResultMessage(
                             callId, storedCall.result().modelContent()));
                 }
@@ -62,7 +64,6 @@ public final class ConversationHistoryBuilder {
                     LlmMessage.MessageRole.ASSISTANT, turn.assistant().content()));
         }
 
-        messages.add(new LlmMessage.TextMessage(LlmMessage.MessageRole.USER, currentPrompt));
         return messages;
     }
 

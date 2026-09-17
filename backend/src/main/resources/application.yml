@@ -26,6 +26,9 @@ codeagent:
     spill-threshold-chars: 12000
     compact-tool-result-chars: 2000
     max-retrieval-chars: 8000
+    minimum-retained-turns: 2
+    compaction-target-ratio: 0.75
+    summary-max-output-tokens: 2048
     result-directory: ${CODEAGENT_CONTEXT_RESULT_DIRECTORY:../runs/context-results}
   session:
     directory: ${CODEAGENT_SESSION_DIRECTORY:../sessions}

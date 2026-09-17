@@ -25,6 +25,14 @@ public final class ContextReductionException extends RuntimeException {
                 null);
     }
 
+    public static ContextReductionException summaryInvalid() {
+        return new ContextReductionException(
+                "CONTEXT_SUMMARY_INVALID",
+                "历史摘要未满足上下文压缩合同",
+                false,
+                null);
+    }
+
     public static ContextReductionException storeFailed(Throwable cause) {
         return new ContextReductionException(
                 "CONTEXT_RESULT_STORE_FAILED",

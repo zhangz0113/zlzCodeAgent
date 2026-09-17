@@ -1,6 +1,8 @@
 package com.zlzcode.codeagent.context.config;
 
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -15,6 +17,11 @@ public record ContextProperties(
         @Positive @DefaultValue("12000") int spillThresholdChars,
         @Positive @DefaultValue("2000") int compactToolResultChars,
         @Positive @DefaultValue("8000") int maxRetrievalChars,
+        @Positive @DefaultValue("2") int minimumRetainedTurns,
+        @DecimalMin(value = "0.0", inclusive = false)
+        @DecimalMax(value = "1.0", inclusive = false)
+        @DefaultValue("0.75") double compactionTargetRatio,
+        @Positive @DefaultValue("2048") int summaryMaxOutputTokens,
         @NotBlank @DefaultValue("../runs/context-results") String resultDirectory) {
 
     @AssertTrue(message = "codeagent.context.reserved-output-tokens must be below context-window-tokens")
@@ -30,5 +37,10 @@ public record ContextProperties(
     @AssertTrue(message = "codeagent.context.max-retrieval-chars must be below spill-threshold-chars")
     public boolean isRetrievalLimitValid() {
         return maxRetrievalChars < spillThresholdChars;
+    }
+
+    @AssertTrue(message = "codeagent.context.summary-max-output-tokens must be below context-window-tokens")
+    public boolean isSummaryOutputLimitValid() {
+        return summaryMaxOutputTokens < contextWindowTokens;
     }
 }

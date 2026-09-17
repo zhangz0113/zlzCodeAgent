@@ -8,6 +8,7 @@ public record Session(
         String workspaceId,
         Instant createdAt,
         Instant updatedAt,
+        HistoryCheckpoint historyCheckpoint,
         List<Turn> turns) {
 
     public Session {
@@ -17,6 +18,11 @@ public record Session(
     public enum TurnState {
         INCOMPLETE,
         COMPLETED
+    }
+
+    public record HistoryCheckpoint(
+            String summaryContent,
+            String coveredThroughRunId) {
     }
 
     public record Turn(

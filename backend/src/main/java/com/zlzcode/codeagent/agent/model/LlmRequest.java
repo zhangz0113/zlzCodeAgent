@@ -11,7 +11,16 @@ public record LlmRequest(
         String model,
         String reasoningEffort,
         List<LlmMessage> messages,
-        List<ToolDeclaration> availableTools) {
+        List<ToolDeclaration> availableTools,
+        Integer maxOutputTokens) {
+
+    public LlmRequest(
+            String model,
+            String reasoningEffort,
+            List<LlmMessage> messages,
+            List<ToolDeclaration> availableTools) {
+        this(model, reasoningEffort, messages, availableTools, null);
+    }
 
     public LlmRequest {
         if (model == null || model.isBlank()) {
@@ -25,6 +34,9 @@ public record LlmRequest(
             throw new IllegalArgumentException("LLM request messages cannot be empty");
         }
         availableTools = availableTools == null ? List.of() : List.copyOf(availableTools);
+        if (maxOutputTokens != null && maxOutputTokens <= 0) {
+            throw new IllegalArgumentException("LLM maximum output tokens must be positive");
+        }
     }
 
     /**

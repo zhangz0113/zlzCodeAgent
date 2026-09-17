@@ -36,7 +36,7 @@ public final class SessionService {
         workspaceRegistry.resolve(workspaceId);
         Instant now = clock.instant();
         Session session = new Session(
-                "session-" + UUID.randomUUID(), workspaceId, now, now, List.of());
+                "session-" + UUID.randomUUID(), workspaceId, now, now, null, List.of());
         sessionStore.create(session);
         return session;
     }
@@ -49,6 +49,7 @@ public final class SessionService {
         Session current = sessionStore.read(sessionId);
         return new SessionRunSnapshot(
                 sessionId, runId, current.workspaceId(), prompt,
+                current.historyCheckpoint(),
                 current.turns().stream()
                         .filter(turn -> turn.state() == Session.TurnState.COMPLETED)
                         .toList());
@@ -73,13 +74,15 @@ public final class SessionService {
                 new Session.UserMessage(prompt),
                 null));
         Session updated = new Session(
-                current.sessionId(), current.workspaceId(), current.createdAt(), now, updatedTurns);
+                current.sessionId(), current.workspaceId(), current.createdAt(), now,
+                current.historyCheckpoint(), updatedTurns);
         sessionStore.save(updated);
         List<Session.Turn> completedHistory = current.turns().stream()
                 .filter(turn -> turn.state() == Session.TurnState.COMPLETED)
                 .toList();
         return new SessionRunSnapshot(
-                sessionId, runId, current.workspaceId(), prompt, completedHistory);
+                sessionId, runId, current.workspaceId(), prompt,
+                current.historyCheckpoint(), completedHistory);
     }
 
     public void completeRun(
@@ -110,7 +113,8 @@ public final class SessionService {
         }
         Instant now = clock.instant();
         sessionStore.save(new Session(
-                current.sessionId(), current.workspaceId(), current.createdAt(), now, updatedTurns));
+                current.sessionId(), current.workspaceId(), current.createdAt(), now,
+                current.historyCheckpoint(), updatedTurns));
     }
 
     /*
@@ -148,7 +152,23 @@ public final class SessionService {
         }
         Instant now = clock.instant();
         sessionStore.save(new Session(
-                current.sessionId(), current.workspaceId(), current.createdAt(), now, updatedTurns));
+                current.sessionId(), current.workspaceId(), current.createdAt(), now,
+                current.historyCheckpoint(), updatedTurns));
+    }
+
+    /*
+     * 背景：历史检查点是完整 Turn 的派生可见状态，摘要调用失败时既有检查点必须保持不变。
+     * 设计意图：只在候选通过内容与容量校验后，由 Session 服务一次性替换最小检查点字段；原始 Turns 原样保留。
+     * 关键约束：该方法不能删除、改写或重排 Turn；否则摘要会从可重建视图变成权威历史，并破坏失败回退能力。
+     */
+    public void saveHistoryCheckpoint(
+            String sessionId,
+            Session.HistoryCheckpoint checkpoint) {
+        Session current = sessionStore.read(sessionId);
+        Instant now = clock.instant();
+        sessionStore.save(new Session(
+                current.sessionId(), current.workspaceId(), current.createdAt(), now,
+                checkpoint, current.turns()));
     }
 
 }
