@@ -42,12 +42,53 @@ public record SessionResponse(
     public record UserResponse(String content) {
     }
 
-    public record AssistantResponse(String content, List<ToolHistoryResponse> toolHistory) {
+    public record AssistantResponse(
+            String content,
+            List<ToolRoundResponse> toolRounds,
+            List<ToolHistoryResponse> toolHistory) {
 
         private static AssistantResponse from(Session.AssistantMessage assistant) {
             return new AssistantResponse(
                     assistant.content(),
+                    assistant.toolRounds().stream().map(ToolRoundResponse::from).toList(),
                     assistant.toolHistory().stream().map(ToolHistoryResponse::from).toList());
+        }
+    }
+
+    public record ToolRoundResponse(String assistantContent, List<ToolCallResponse> calls) {
+
+        private static ToolRoundResponse from(Session.ToolRound round) {
+            return new ToolRoundResponse(
+                    round.assistantContent(),
+                    round.calls().stream().map(ToolCallResponse::from).toList());
+        }
+    }
+
+    public record ToolCallResponse(
+            String name,
+            String arguments,
+            ToolResultResponse result) {
+
+        private static ToolCallResponse from(Session.ToolCall call) {
+            return new ToolCallResponse(
+                    call.name(),
+                    call.arguments(),
+                    call.result() == null ? null : ToolResultResponse.from(call.result()));
+        }
+    }
+
+    public record ToolResultResponse(
+            boolean success,
+            String modelContent,
+            String presentation,
+            String resultRef) {
+
+        private static ToolResultResponse from(Session.ToolResult result) {
+            return new ToolResultResponse(
+                    result.success(),
+                    result.modelContent(),
+                    result.presentation(),
+                    result.resultRef());
         }
     }
 

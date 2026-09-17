@@ -23,6 +23,7 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Component
@@ -110,12 +111,17 @@ final class AgentReActLoop {
         context.appendAssistantToolCalls(
                 result.content(), result.hiddenReasoning(), calls);
         LlmToolCall firstCall = calls.getFirst();
+        List<AgentEvent> events = new ArrayList<>();
+        if (result.content() != null && !result.content().isBlank()) {
+            events.add(new AgentEvent.AssistantStep(result.content()));
+        }
+        events.add(new AgentEvent.ToolStarted(
+                firstCall.id(), toolRegistry.displayName(firstCall.name()), null));
         return Mono.just(state.withPendingTool(
                 RunPhase.TOOL_READY,
                 calls,
                 0,
-                List.of(new AgentEvent.ToolStarted(
-                        firstCall.id(), toolRegistry.displayName(firstCall.name()), null))));
+                events));
     }
 
     /*
@@ -190,7 +196,8 @@ final class AgentReActLoop {
                             outcome.ok(),
                             prepared.modelContent(),
                             outcome.presentation());
-                    state.context().recordToolExecution(call, visibleOutcome);
+                    state.context().recordToolExecution(
+                            call, visibleOutcome, prepared.resultRef());
                     return state.withToolOutcomeEvents(
                             RunPhase.TOOL_RESULT_READY,
                             List.of(new AgentEvent.ToolFinished(
