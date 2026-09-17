@@ -7,6 +7,7 @@ import {
   type OpenAIModel,
   type RunRequest,
   type Session,
+  type ToolStep,
   type Workspace,
   titleFromPrompt,
 } from './domain'
@@ -103,6 +104,63 @@ function parseToolHistory(value: unknown): ConversationToolHistory[] {
   })
 }
 
+function parseToolRounds(
+  value: unknown,
+  runId: string,
+): { processNotes: string[]; tools: ToolStep[] } {
+  if (!Array.isArray(value)) throw sessionResponseError()
+  const processNotes: string[] = []
+  const tools: ToolStep[] = []
+
+  value.forEach((item, roundIndex) => {
+    const round = jsonRecord(item)
+    const assistantContent = round?.assistantContent
+    if (assistantContent !== null && assistantContent !== undefined
+      && typeof assistantContent !== 'string') throw sessionResponseError()
+    if (typeof assistantContent === 'string' && assistantContent.trim()) {
+      processNotes.push(assistantContent)
+    }
+    if (!Array.isArray(round?.calls) || round.calls.length === 0) {
+      throw sessionResponseError()
+    }
+    round.calls.forEach((itemCall, callIndex) => {
+      const call = jsonRecord(itemCall)
+      const name = requiredString(call?.name)
+      const argumentsValue = typeof call?.arguments === 'string' ? call.arguments : undefined
+      if (name === undefined || argumentsValue === undefined) throw sessionResponseError()
+
+      if (call?.result === null || call?.result === undefined) {
+        tools.push({
+          id: `${runId}-history-${roundIndex}-${callIndex}`,
+          label: name,
+          state: 'failed',
+          detail: '运行结束前未取得工具结果',
+        })
+        return
+      }
+
+      const result = jsonRecord(call.result)
+      if (typeof result?.success !== 'boolean' || typeof result.modelContent !== 'string') {
+        throw sessionResponseError()
+      }
+      const presentation = result.presentation
+      if (presentation !== null && presentation !== undefined
+        && typeof presentation !== 'string') throw sessionResponseError()
+      const resultRef = result.resultRef
+      if (resultRef !== null && resultRef !== undefined && typeof resultRef !== 'string') {
+        throw sessionResponseError()
+      }
+      tools.push({
+        id: `${runId}-history-${roundIndex}-${callIndex}`,
+        label: name,
+        state: result.success ? 'completed' : 'failed',
+        ...(typeof presentation === 'string' && presentation ? { detail: presentation } : {}),
+      })
+    })
+  })
+  return { processNotes, tools }
+}
+
 function parseSession(value: unknown): Session {
   const candidate = jsonRecord(value)
   const id = requiredString(candidate?.sessionId)
@@ -138,6 +196,10 @@ function parseSession(value: unknown): Session {
       createdAt: turnCreatedAt,
       state: 'complete',
     }
+    const assistant = jsonRecord(turn?.assistant)
+    const roundProjection = assistant === undefined || assistant.toolRounds === undefined
+      ? { processNotes: [], tools: [] }
+      : parseToolRounds(assistant.toolRounds, runId)
     if (state === 'incomplete') {
       return [
         userMessage,
@@ -148,11 +210,14 @@ function parseSession(value: unknown): Session {
           createdAt: turnCreatedAt,
           state: 'error' as const,
           statusLabel: '运行未完成',
+          ...(roundProjection.processNotes.length > 0
+            ? { processNotes: roundProjection.processNotes }
+            : {}),
+          ...(roundProjection.tools.length > 0 ? { tools: roundProjection.tools } : {}),
         },
       ]
     }
 
-    const assistant = jsonRecord(turn?.assistant)
     const assistantContent = requiredString(assistant?.content)
     if (assistantContent === undefined) throw sessionResponseError()
     const toolHistory = parseToolHistory(assistant?.toolHistory)
@@ -165,6 +230,10 @@ function parseSession(value: unknown): Session {
         createdAt: turnCreatedAt,
         state: 'complete' as const,
         statusLabel: toolHistory.length > 0 ? '已回答（执行了工具）' : '已回答（未执行工具）',
+        ...(roundProjection.processNotes.length > 0
+          ? { processNotes: roundProjection.processNotes }
+          : {}),
+        ...(roundProjection.tools.length > 0 ? { tools: roundProjection.tools } : {}),
         ...(toolHistory.length > 0 ? { toolHistory } : {}),
       },
     ]
