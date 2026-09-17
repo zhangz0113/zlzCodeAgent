@@ -46,7 +46,7 @@ public final class ReadToolResultDefinition implements ToolDefinition {
 
     @Override
     public String description() {
-        return "Read a bounded character range from a stored tool-result snapshot referenced by a result_ref.";
+        return "Read a bounded range from a stored tool payload. Offset and limit use the unit returned for that snapshot.";
     }
 
     @Override

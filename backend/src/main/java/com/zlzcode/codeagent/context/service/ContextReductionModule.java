@@ -1,7 +1,6 @@
 package com.zlzcode.codeagent.context.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zlzcode.codeagent.agent.model.LlmMessage;
 import com.zlzcode.codeagent.agent.model.LlmRequest;
@@ -10,12 +9,16 @@ import com.zlzcode.codeagent.context.config.ContextProperties;
 import com.zlzcode.codeagent.context.exception.ContextReductionException;
 import com.zlzcode.codeagent.context.model.ContextReduction.CapacityReport;
 import com.zlzcode.codeagent.context.model.ContextReduction.ContentRange;
+import com.zlzcode.codeagent.context.model.ContextReduction.PayloadKind;
+import com.zlzcode.codeagent.context.model.ContextReduction.PayloadRole;
+import com.zlzcode.codeagent.context.model.ContextReduction.PreparedToolArguments;
 import com.zlzcode.codeagent.context.model.ContextReduction.PreparedToolResult;
 import com.zlzcode.codeagent.context.model.ContextReduction.ReductionReason;
 import com.zlzcode.codeagent.context.model.ContextReduction.ReductionRecord;
 import com.zlzcode.codeagent.context.model.ContextReduction.ReductionScope;
 import com.zlzcode.codeagent.context.model.ContextReduction.ResultReference;
 import com.zlzcode.codeagent.context.model.ContextReduction.RetrievedContent;
+import com.zlzcode.codeagent.context.model.ContextReduction.ToolArgumentsMaterial;
 import com.zlzcode.codeagent.context.model.ContextReduction.ToolResultMaterial;
 import com.zlzcode.codeagent.context.model.RunContextPlan;
 import com.zlzcode.codeagent.context.model.RunContextPlan.AssembledRequest;
@@ -34,12 +37,12 @@ import java.util.Objects;
 @Component
 public final class ContextReductionModule {
 
-    private static final String SPILL_TOOL = "read";
     private static final String RETRIEVAL_TOOL = "read_tool_result";
 
     private final ObjectMapper objectMapper;
     private final ContextProperties properties;
     private final FileContextResultStore resultStore;
+    private final ToolPayloadCodec payloadCodec;
 
     public ContextReductionModule(
             ObjectMapper objectMapper,
@@ -48,12 +51,39 @@ public final class ContextReductionModule {
         this.objectMapper = objectMapper;
         this.properties = properties;
         this.resultStore = resultStore;
+        this.payloadCodec = new ToolPayloadCodec(objectMapper);
+    }
+
+    /*
+     * 背景：write/edit 的完整参数会直接进入执行或审批计划，Session 和后续模型请求却不能反复携带大正文。
+     * 设计意图：任何工具调用先经过统一入口；达到阈值时先保存原始 JSON，再返回保持 JSON 合法的模型可见预览。
+     * 关键约束：该方法必须在工具执行和创建审批计划之前成功完成，调用方仍须把原始参数交给 ToolRegistry；
+     * 若用预览执行或先产生副作用再保存，MutationPlan 会丢内容，失败时也无法取回真实调用参数。
+     */
+    public PreparedToolArguments prepareToolArguments(
+            ReductionScope scope,
+            ToolArgumentsMaterial arguments) {
+        Objects.requireNonNull(scope, "Reduction scope cannot be null");
+        Objects.requireNonNull(arguments, "Tool arguments material cannot be null");
+        if (codePointLength(arguments.arguments()) <= properties.spillThresholdChars()) {
+            return new PreparedToolArguments(arguments.arguments(), false, null);
+        }
+        String reference = resultStore.save(
+                scope,
+                "tool-call:" + arguments.toolCallId() + "/arguments",
+                arguments.toolName(),
+                PayloadRole.ARGUMENTS,
+                PayloadKind.TOOL_ARGUMENTS,
+                arguments.arguments());
+        String preview = payloadCodec.renderArgumentsPreview(
+                arguments.arguments(), reference, properties.spillThresholdChars());
+        return new PreparedToolArguments(preview, true, reference);
     }
 
     /*
      * 背景：工具服务已有自己的资源和语义限制，但旧的字符 fit 会在上下文层接手前
-     * 不可逆地丢弃 read 结果，后续引用无法恢复被截断部分。
-     * 设计意图：在唯一工具记录点之前保存超大 read 结果，并只把有界预览交给 ReAct；
+     * 不可逆地丢弃只读工具结果，后续引用无法恢复被截断部分。
+     * 设计意图：在唯一工具记录点之前保存超大结果，并按工具语义只把有界预览交给 ReAct；
      * 普通结果保持原样，调用方不需要理解存储和预览格式。
      * 关键约束：必须先确认原文保存成功再返回引用，且 read_tool_result 本身不得再次
      * 进入 Spill；否则会出现承诺可取回但原文不存在，或取回结果无限外置的循环。
@@ -64,23 +94,24 @@ public final class ContextReductionModule {
         Objects.requireNonNull(scope, "Reduction scope cannot be null");
         Objects.requireNonNull(result, "Tool result material cannot be null");
         if (!result.success()
-                || !SPILL_TOOL.equals(result.toolName())
                 || RETRIEVAL_TOOL.equals(result.toolName())
                 || codePointLength(result.modelContent()) <= properties.spillThresholdChars()) {
             return new PreparedToolResult(result.modelContent(), false, null);
         }
 
+        PayloadKind kind = payloadCodec.resultKind(result.toolName(), result.modelContent());
         String reference = resultStore.save(
                 scope,
-                "tool-call:" + result.toolCallId(),
+                "tool-call:" + result.toolCallId() + "/result",
                 result.toolName(),
+                PayloadRole.RESULT,
+                kind,
                 result.modelContent());
-        String preview = renderToolPreview(
-                result.success(),
-                "SPILLED",
-                codePointLength(result.modelContent()),
-                reference,
+        String preview = payloadCodec.renderResultPreview(
+                kind,
                 result.modelContent(),
+                reference,
+                "SPILLED",
                 properties.spillThresholdChars());
         return new PreparedToolResult(preview, true, reference);
     }
@@ -109,7 +140,6 @@ public final class ContextReductionModule {
         int after = before;
 
         if (after > budget) {
-            int latestSessionAssistant = latestSessionAssistant(visible);
             int latestCurrentToolBatch = latestCurrentToolBatch(visible);
 
             for (int index : sessionToolResultCandidates(visible)) {
@@ -134,16 +164,6 @@ public final class ContextReductionModule {
                 }
             }
 
-            if (after > budget) {
-                for (int index : sessionAssistantCandidates(visible, latestSessionAssistant)) {
-                    ReductionRecord reduction = reduceAssistantEntry(visible, index);
-                    if (reduction != null) {
-                        reductions.add(reduction);
-                        after = estimateTokens(draft, visible);
-                        if (after <= budget) break;
-                    }
-                }
-            }
         }
 
         if (after > budget) {
@@ -179,20 +199,25 @@ public final class ContextReductionModule {
         if (range.limit() > properties.maxRetrievalChars()) {
             throw ContextReductionException.rangeInvalid();
         }
-        String content = resultStore.read(sessionId, reference.value()).content();
-        int[] points = content.codePoints().toArray();
-        if (range.offset() > points.length) {
+        FileContextResultStore.StoredResult stored = resultStore.read(sessionId, reference.value());
+        try {
+            ToolPayloadCodec.Page page = payloadCodec.retrieve(
+                    stored.payloadKind(),
+                    stored.content(),
+                    range.offset(),
+                    range.limit(),
+                    properties.maxRetrievalChars());
+            return new RetrievedContent(
+                    reference.value(),
+                    page.unit(),
+                    page.content(),
+                    page.offset(),
+                    page.nextOffset(),
+                    page.total(),
+                    page.complete());
+        } catch (IllegalArgumentException exception) {
             throw ContextReductionException.rangeInvalid();
         }
-        int end = Math.min(points.length, range.offset() + range.limit());
-        String selected = new String(points, range.offset(), end - range.offset());
-        return new RetrievedContent(
-                reference.value(),
-                selected,
-                range.offset(),
-                end,
-                points.length,
-                end >= points.length);
     }
 
     private ReductionRecord reduceToolResultEntry(
@@ -202,33 +227,34 @@ public final class ContextReductionModule {
             ReductionReason reason) {
         ContextEntry entry = visible.get(index);
         LlmMessage.ToolResultMessage message = (LlmMessage.ToolResultMessage) entry.message();
-        ExistingPreview existing = parsePreview(message.content());
+        String existingReference = payloadCodec.previewReference(message.content());
         String reference;
-        int originalChars;
-        String previewSource;
-        boolean success;
-        if (existing == null) {
+        PayloadKind kind;
+        String originalContent;
+        if (existingReference == null) {
+            String toolName = toolNameForResult(visible, index, message.toolCallId());
+            kind = payloadCodec.resultKind(toolName, message.content());
             reference = resultStore.save(
                     scope,
                     entry.source(),
-                    "tool-result",
+                    toolName,
+                    PayloadRole.RESULT,
+                    kind,
                     message.content());
-            originalChars = codePointLength(message.content());
-            previewSource = message.content();
-            success = inferSuccess(message.content());
+            originalContent = message.content();
         } else {
-            reference = existing.resultRef();
-            originalChars = existing.originalChars();
-            previewSource = existing.head() + "\n...\n" + existing.tail();
-            success = existing.success();
+            FileContextResultStore.StoredResult stored = resultStore.read(
+                    scope.sessionId(), existingReference);
+            reference = stored.reference();
+            kind = stored.payloadKind();
+            originalContent = stored.content();
         }
 
-        String compact = renderToolPreview(
-                success,
-                "CAPACITY_PRUNED",
-                originalChars,
+        String compact = payloadCodec.renderResultPreview(
+                kind,
+                originalContent,
                 reference,
-                previewSource,
+                "CAPACITY_PRUNED",
                 properties.compactToolResultChars());
         int before = codePointLength(message.content());
         int after = codePointLength(compact);
@@ -245,27 +271,6 @@ public final class ContextReductionModule {
                 before,
                 after,
                 true);
-    }
-
-    private ReductionRecord reduceAssistantEntry(List<ContextEntry> visible, int index) {
-        ContextEntry entry = visible.get(index);
-        LlmMessage.TextMessage message = (LlmMessage.TextMessage) entry.message();
-        String compact = compactAssistant(message.content(), properties.compactAssistantChars());
-        int before = codePointLength(message.content());
-        int after = codePointLength(compact);
-        if (after >= before) {
-            return null;
-        }
-        visible.set(index, entry.withMessage(
-                new LlmMessage.TextMessage(LlmMessage.MessageRole.ASSISTANT, compact)));
-        return new ReductionRecord(
-                index,
-                entry.kind(),
-                entry.source(),
-                ReductionReason.SESSION_ASSISTANT,
-                before,
-                after,
-                false);
     }
 
     private List<Integer> sessionToolResultCandidates(List<ContextEntry> entries) {
@@ -295,35 +300,11 @@ public final class ContextReductionModule {
         return result;
     }
 
-    private List<Integer> sessionAssistantCandidates(
-            List<ContextEntry> entries,
-            int latestAssistant) {
-        List<Integer> result = new ArrayList<>();
-        for (int index = 0; index < entries.size(); index++) {
-            ContextEntry entry = entries.get(index);
-            if (index != latestAssistant
-                    && entry.kind() == MaterialKind.SESSION_HISTORY
-                    && entry.message() instanceof LlmMessage.TextMessage text
-                    && text.role() == LlmMessage.MessageRole.ASSISTANT) {
-                result.add(index);
-            }
-        }
-        return result;
-    }
-
-    private int latestSessionAssistant(List<ContextEntry> entries) {
-        int latest = -1;
-        for (int index = 0; index < entries.size(); index++) {
-            ContextEntry entry = entries.get(index);
-            if (entry.kind() == MaterialKind.SESSION_HISTORY
-                    && entry.message() instanceof LlmMessage.TextMessage text
-                    && text.role() == LlmMessage.MessageRole.ASSISTANT) {
-                latest = index;
-            }
-        }
-        return latest;
-    }
-
+    /*
+     * 背景：当前 Run 最后一批工具调用可能仍在补齐结果，破坏它会让下一次模型请求失去刚发生的协议事实。
+     * 设计意图：容量缩减只处理该批次之前、已经产生后续行为的旧工具结果，不裁剪最新批次。
+     * 关键约束：返回值必须是最后一条 AssistantToolCalls 的起点；若保护范围前移或后移，可能留下悬空 call ID 或隐藏最新工具结果。
+     */
     private int latestCurrentToolBatch(List<ContextEntry> entries) {
         int latest = Integer.MAX_VALUE;
         for (int index = 0; index < entries.size(); index++) {
@@ -357,92 +338,18 @@ public final class ContextReductionModule {
         }
     }
 
-    private String renderToolPreview(
-            boolean success,
-            String state,
-            int originalChars,
-            String resultRef,
-            String source,
-            int maxChars) {
-        int[] points = source.codePoints().toArray();
-        int low = 0;
-        int high = Math.min(points.length, maxChars);
-        String best = encodePreview(new PreviewEnvelope(
-                success, state, originalChars, resultRef, "", ""));
-        while (low <= high) {
-            int retained = (low + high) >>> 1;
-            int headLength = retained * 3 / 4;
-            int tailLength = retained - headLength;
-            String head = new String(points, 0, Math.min(headLength, points.length));
-            int tailStart = Math.max(0, points.length - tailLength);
-            String tail = new String(points, tailStart, points.length - tailStart);
-            String candidate = encodePreview(new PreviewEnvelope(
-                    success, state, originalChars, resultRef, head, tail));
-            if (codePointLength(candidate) <= maxChars) {
-                best = candidate;
-                low = retained + 1;
-            } else {
-                high = retained - 1;
+    private String toolNameForResult(
+            List<ContextEntry> entries,
+            int resultIndex,
+            String toolCallId) {
+        for (int index = resultIndex - 1; index >= 0; index--) {
+            if (entries.get(index).message() instanceof LlmMessage.AssistantToolCallsMessage assistant) {
+                for (LlmToolCall call : assistant.toolCalls()) {
+                    if (toolCallId.equals(call.id())) return call.name();
+                }
             }
         }
-        return best;
-    }
-
-    private String compactAssistant(String content, int maxChars) {
-        int[] points = content.codePoints().toArray();
-        if (points.length <= maxChars) return content;
-        String prefix = "[Earlier assistant response shortened for context capacity. Original characters: "
-                + points.length + "\n\n--- beginning ---\n";
-        String middle = "\n\n--- ending ---\n";
-        String suffix = "\n]";
-        int available = Math.max(0, maxChars
-                - codePointLength(prefix)
-                - codePointLength(middle)
-                - codePointLength(suffix));
-        int headLength = available * 2 / 3;
-        int tailLength = available - headLength;
-        String head = new String(points, 0, Math.min(headLength, points.length));
-        int tailStart = Math.max(0, points.length - tailLength);
-        String tail = new String(points, tailStart, points.length - tailStart);
-        return prefix + head + middle + tail + suffix;
-    }
-
-    private ExistingPreview parsePreview(String content) {
-        try {
-            JsonNode node = objectMapper.readTree(content);
-            if (node == null
-                    || !node.path("resultRef").isTextual()
-                    || !node.path("originalChars").canConvertToInt()
-                    || !node.path("head").isTextual()
-                    || !node.path("tail").isTextual()) {
-                return null;
-            }
-            return new ExistingPreview(
-                    node.path("success").asBoolean(true),
-                    node.path("originalChars").intValue(),
-                    node.path("resultRef").asText(),
-                    node.path("head").asText(),
-                    node.path("tail").asText());
-        } catch (JsonProcessingException exception) {
-            return null;
-        }
-    }
-
-    private boolean inferSuccess(String content) {
-        try {
-            JsonNode node = objectMapper.readTree(content);
-            return node == null || !node.has("ok") || node.path("ok").asBoolean(true);
-        } catch (JsonProcessingException exception) {
-            return true;
-        }
-    }
-
-    private String encodePreview(PreviewEnvelope preview) {
-        try {
-            return objectMapper.writeValueAsString(preview);
-        } catch (JsonProcessingException exception) {
-            throw new IllegalStateException("Unable to encode context result preview", exception);
-        }
+        return "unknown";
     }
 
     private List<RequestComposition.MessageEntry> toMessageEntries(List<ContextEntry> entries) {
@@ -501,20 +408,4 @@ public final class ContextReductionModule {
         return value.codePointCount(0, value.length());
     }
 
-    private record ExistingPreview(
-            boolean success,
-            int originalChars,
-            String resultRef,
-            String head,
-            String tail) {
-    }
-
-    private record PreviewEnvelope(
-            boolean success,
-            String state,
-            int originalChars,
-            String resultRef,
-            String head,
-            String tail) {
-    }
 }

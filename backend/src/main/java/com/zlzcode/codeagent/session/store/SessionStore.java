@@ -27,7 +27,8 @@ import java.util.regex.Pattern;
 @Component
 public final class SessionStore {
 
-    private static final int STATE_VERSION = 2;
+    private static final int STATE_VERSION = 3;
+    private static final int STRUCTURED_STATE_VERSION = 2;
     private static final int LEGACY_STATE_VERSION = 1;
     private static final int MAX_FILE_BYTES = 8 * 1024 * 1024;
     private static final int MAX_TURNS = 1_000;
@@ -150,8 +151,16 @@ public final class SessionStore {
     }
 
     private Session validateAndMap(SessionFile file, String expectedSessionId) {
+        /*
+         * 背景：v1 只有扁平 toolHistory，v2 引入结构化工具 round，v3 才为大型参数增加 argumentsRef。
+         * 设计意图：新写入统一使用 v3，读取时在内存中把 v1/v2 投影为当前模型，不建设一次性迁移工具。
+         * 关键约束：v1 的扁平顺序和 v2 的完整参数必须原样保留；不能把缺失 argumentsRef 当成损坏，
+         * 否则升级后既有 Session 将全部无法继续读取。
+         */
         if (file == null
-                || (file.version() != STATE_VERSION && file.version() != LEGACY_STATE_VERSION)
+                || (file.version() != STATE_VERSION
+                && file.version() != STRUCTURED_STATE_VERSION
+                && file.version() != LEGACY_STATE_VERSION)
                 || !expectedSessionId.equals(file.sessionId())) {
             throw SessionException.stateCorrupted();
         }
@@ -248,6 +257,7 @@ public final class SessionStore {
                 || !TOOL_NAME_PATTERN.matcher(call.name()).matches()
                 || call.arguments() == null
                 || call.arguments().length() > MAX_TOOL_VALUE_CHARS
+                || (call.argumentsRef() != null && call.argumentsRef().length() > 256)
                 || (completed && call.result() == null)) {
             throw invalidState.get();
         }
@@ -350,7 +360,7 @@ public final class SessionStore {
         }
 
         private Session.AssistantMessage toModel(int version) {
-            if (version == STATE_VERSION) {
+            if (version == STATE_VERSION || version == STRUCTURED_STATE_VERSION) {
                 return new Session.AssistantMessage(
                         content, toolRounds == null ? List.of() : toolRounds);
             }
@@ -362,6 +372,7 @@ public final class SessionStore {
                             List.of(new Session.ToolCall(
                                     tool.name(),
                                     tool.arguments(),
+                                    null,
                                     new Session.ToolResult(
                                             true, tool.result(), null, null)))))
                     .toList();

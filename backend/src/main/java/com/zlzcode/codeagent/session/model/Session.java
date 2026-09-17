@@ -53,7 +53,11 @@ public record Session(
         }
     }
 
-    public record ToolCall(String name, String arguments, ToolResult result) {
+    public record ToolCall(
+            String name,
+            String arguments,
+            String argumentsRef,
+            ToolResult result) {
     }
 
     public record ToolResult(

@@ -115,8 +115,7 @@ public class GrepService implements ToolHandler {
                 if (matchCount >= limits.maxMatches()) break;
             }
 
-            GrepResult result = fit(new GrepResult(true, files, matchCount, truncated),
-                    limits.maxResultChars());
+            GrepResult result = new GrepResult(true, List.copyOf(files), matchCount, truncated);
             return new ToolOutcome(true, encode(result), "找到 " + result.matchCount() + " 行匹配"
                     + (result.truncated() ? "；结果已截断" : ""));
         } catch (NoSuchFileException exception) {
@@ -163,24 +162,6 @@ public class GrepService implements ToolHandler {
             index += Character.charCount(codePoint);
         }
         return new Preview(value.toString(), true);
-    }
-
-    private GrepResult fit(GrepResult original, int maxChars) {
-        List<GrepFileResult> files = new ArrayList<>();
-        for (GrepFileResult file : original.files()) {
-            files.add(new GrepFileResult(file.path(), new ArrayList<>(file.matches())));
-        }
-        int matchCount = original.matchCount();
-        boolean truncated = original.truncated();
-        while (encode(new GrepResult(true, files, matchCount, truncated)).length() > maxChars
-                && !files.isEmpty()) {
-            GrepFileResult last = files.get(files.size() - 1);
-            last.matches().remove(last.matches().size() - 1);
-            matchCount--;
-            truncated = true;
-            if (last.matches().isEmpty()) files.remove(files.size() - 1);
-        }
-        return new GrepResult(true, List.copyOf(files), matchCount, truncated);
     }
 
     private String encode(Object value) {
