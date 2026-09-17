@@ -6,7 +6,9 @@ import com.zlzcode.codeagent.agent.model.LlmToolCall;
 import com.zlzcode.codeagent.agent.model.LlmTurnResult;
 import com.zlzcode.codeagent.agent.stream.LlmTurnStreamProcessor;
 import com.zlzcode.codeagent.context.model.RunContextPlan;
+import com.zlzcode.codeagent.context.model.ContextReduction.PreparedToolArguments;
 import com.zlzcode.codeagent.context.model.ContextReduction.PreparedToolResult;
+import com.zlzcode.codeagent.context.model.ContextReduction.ToolArgumentsMaterial;
 import com.zlzcode.codeagent.context.model.ContextReduction.ToolResultMaterial;
 import com.zlzcode.codeagent.context.service.ContextReductionModule;
 import com.zlzcode.codeagent.openai.client.OpenAiChatClient;
@@ -24,7 +26,9 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Component
 final class AgentReActLoop {
@@ -108,8 +112,29 @@ final class AgentReActLoop {
 
         ModelTurnOutcome.ToolRequested execute = (ModelTurnOutcome.ToolRequested) decision;
         List<LlmToolCall> calls = execute.calls();
+        /*
+         * 背景：修改工具的参数会在下一阶段立即执行或形成审批计划，大正文同时又会进入后续模型历史。
+         * 设计意图：先为整批调用准备模型可见副本和引用，ReAct/Session 使用副本，状态机仍持有模型返回的原始调用用于执行。
+         * 关键约束：所有快照必须在任何工具副作用或审批计划创建前成功；不得把 visibleCalls 传给 ToolRegistry，
+         * 否则 write/edit 会把预览标记写入文件而不是执行原始请求。
+         */
+        List<LlmToolCall> visibleCalls = new ArrayList<>(calls.size());
+        Map<String, String> argumentRefs = new HashMap<>();
+        for (LlmToolCall call : calls) {
+            PreparedToolArguments prepared = contextReduction.prepareToolArguments(
+                    context.reductionScope(),
+                    new ToolArgumentsMaterial(
+                            call.name(),
+                            call.id(),
+                            call.arguments() == null ? "" : call.arguments()));
+            visibleCalls.add(new LlmToolCall(
+                    call.id(), call.name(), prepared.modelArguments()));
+            if (prepared.argumentsRef() != null) {
+                argumentRefs.put(call.id(), prepared.argumentsRef());
+            }
+        }
         context.appendAssistantToolCalls(
-                result.content(), result.hiddenReasoning(), calls);
+                result.content(), result.hiddenReasoning(), visibleCalls, argumentRefs);
         LlmToolCall firstCall = calls.getFirst();
         List<AgentEvent> events = new ArrayList<>();
         if (result.content() != null && !result.content().isBlank()) {

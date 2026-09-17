@@ -67,12 +67,14 @@ public record SessionResponse(
     public record ToolCallResponse(
             String name,
             String arguments,
+            String argumentsRef,
             ToolResultResponse result) {
 
         private static ToolCallResponse from(Session.ToolCall call) {
             return new ToolCallResponse(
                     call.name(),
                     call.arguments(),
+                    call.argumentsRef(),
                     call.result() == null ? null : ToolResultResponse.from(call.result()));
         }
     }

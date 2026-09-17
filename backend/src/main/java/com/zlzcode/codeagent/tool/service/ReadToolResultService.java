@@ -44,9 +44,9 @@ public final class ReadToolResultService implements ToolHandler {
      * 背景：结果引用指向工具当时交付的快照，普通 read 读取当前工作区文件，二者不能
      * 互相替代；本地文件读取仍属于阻塞 I/O。
      * 设计意图：Handler 只作为 Tool seam 的 Adapter，把已校验参数交给统一 Module，
-     * 并在 boundedElastic 上返回有界片段。
+     * 并在 boundedElastic 上返回按快照语义单位分页、同时受统一字符上限约束的有界片段。
      * 关键约束：引用授权必须使用当前 Session，且该工具结果不能再次进入 Spill；否则
-     * 会泄露其他会话内容或形成取回结果反复外置的循环。
+     * 会泄露其他会话内容或形成取回结果反复外置的循环；offset/limit 不能在 Adapter 中固定解释为字符。
      */
     @Override
     public Mono<ToolExecutionResult> execute(ToolExecutionContext context, String arguments) {
@@ -78,12 +78,14 @@ public final class ReadToolResultService implements ToolHandler {
                 encode(new ReadResult(
                         true,
                         result.resultRef(),
+                        result.unit().value(),
                         result.offset(),
                         result.nextOffset(),
-                        result.totalChars(),
+                        result.total(),
                         result.complete(),
                         result.content())),
-                "已读取工具结果字符 " + result.offset() + "-" + result.nextOffset()
+                "已读取工具结果 " + result.unit().value() + " "
+                        + result.offset() + "-" + result.nextOffset()
                         + (result.complete() ? "；已到结尾" : ""));
     }
 
@@ -113,9 +115,10 @@ public final class ReadToolResultService implements ToolHandler {
     private record ReadResult(
             boolean ok,
             String resultRef,
+            String unit,
             int offset,
             int nextOffset,
-            int totalChars,
+            int total,
             boolean complete,
             String content) {
     }

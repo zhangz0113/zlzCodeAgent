@@ -14,7 +14,6 @@ public record ContextProperties(
         @Positive @DefaultValue("4096") int reservedOutputTokens,
         @Positive @DefaultValue("12000") int spillThresholdChars,
         @Positive @DefaultValue("2000") int compactToolResultChars,
-        @Positive @DefaultValue("6000") int compactAssistantChars,
         @Positive @DefaultValue("8000") int maxRetrievalChars,
         @NotBlank @DefaultValue("../runs/context-results") String resultDirectory) {
 

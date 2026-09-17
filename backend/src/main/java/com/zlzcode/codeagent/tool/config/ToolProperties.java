@@ -43,14 +43,12 @@ public record ToolProperties(
 
     public record Glob(
             @Positive @DefaultValue("100") int maxResults,
-            @Positive @DefaultValue("50") int maxDepth,
-            @Positive @DefaultValue("20000") int maxResultChars) {
+            @Positive @DefaultValue("50") int maxDepth) {
     }
 
     public record Grep(
             @Positive @DefaultValue("250") int maxMatches,
             @Positive @DefaultValue("2000") int maxLinePreviewBytes,
-            @Positive @DefaultValue("20000") int maxResultChars,
             @Positive @DefaultValue("10485760") long maxFileBytes) {
     }
 

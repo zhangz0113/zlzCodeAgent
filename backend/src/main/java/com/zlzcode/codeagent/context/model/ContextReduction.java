@@ -38,6 +38,30 @@ public final class ContextReduction {
         }
     }
 
+    public record ToolArgumentsMaterial(
+            String toolName,
+            String toolCallId,
+            String arguments) {
+
+        public ToolArgumentsMaterial {
+            if (toolName == null || toolName.isBlank()) {
+                throw new IllegalArgumentException("Tool arguments name cannot be blank");
+            }
+            if (toolCallId == null || toolCallId.isBlank()) {
+                throw new IllegalArgumentException("Tool arguments call ID cannot be blank");
+            }
+            if (arguments == null) {
+                throw new IllegalArgumentException("Tool arguments cannot be null");
+            }
+        }
+    }
+
+    public record PreparedToolArguments(
+            String modelArguments,
+            boolean reduced,
+            String argumentsRef) {
+    }
+
     public record PreparedToolResult(
             String modelContent,
             boolean reduced,
@@ -64,11 +88,44 @@ public final class ContextReduction {
 
     public record RetrievedContent(
             String resultRef,
+            PayloadUnit unit,
             String content,
             int offset,
             int nextOffset,
-            int totalChars,
+            int total,
             boolean complete) {
+    }
+
+    public enum PayloadRole {
+        ARGUMENTS,
+        RESULT
+    }
+
+    public enum PayloadKind {
+        READ_LINES,
+        GREP_MATCHES,
+        GLOB_PATHS,
+        OVERVIEW_ENTRIES,
+        TOOL_ARGUMENTS,
+        GENERIC_TEXT
+    }
+
+    public enum PayloadUnit {
+        LINE("line"),
+        MATCH("match"),
+        PATH("path"),
+        ENTRY("entry"),
+        CHARACTER("character");
+
+        private final String value;
+
+        PayloadUnit(String value) {
+            this.value = value;
+        }
+
+        public String value() {
+            return value;
+        }
     }
 
     public record CapacityReport(
@@ -90,8 +147,7 @@ public final class ContextReduction {
 
     public enum ReductionReason {
         SESSION_TOOL_RESULT,
-        CURRENT_RUN_TOOL_RESULT,
-        SESSION_ASSISTANT
+        CURRENT_RUN_TOOL_RESULT
     }
 
 }

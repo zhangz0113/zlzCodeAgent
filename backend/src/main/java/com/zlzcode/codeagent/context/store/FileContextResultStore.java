@@ -3,6 +3,8 @@ package com.zlzcode.codeagent.context.store;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zlzcode.codeagent.context.config.ContextProperties;
 import com.zlzcode.codeagent.context.exception.ContextReductionException;
+import com.zlzcode.codeagent.context.model.ContextReduction.PayloadKind;
+import com.zlzcode.codeagent.context.model.ContextReduction.PayloadRole;
 import com.zlzcode.codeagent.context.model.ContextReduction.ReductionScope;
 import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Component;
@@ -53,9 +55,14 @@ public final class FileContextResultStore {
             ReductionScope scope,
             String source,
             String toolName,
+            PayloadRole payloadRole,
+            PayloadKind payloadKind,
             String content) {
         requireId(scope.sessionId());
-        if (source == null || source.isBlank() || toolName == null || toolName.isBlank()) {
+        if (source == null || source.isBlank()
+                || toolName == null || toolName.isBlank()
+                || payloadRole == null
+                || payloadKind == null) {
             throw new IllegalArgumentException("Stored context result requires source and tool name");
         }
         String reference = "result_" + sha256(
@@ -67,12 +74,14 @@ public final class FileContextResultStore {
         }
 
         StoredResult stored = new StoredResult(
-                1,
+                2,
                 reference,
                 scope.sessionId(),
                 scope.runId(),
                 source,
                 toolName,
+                payloadRole,
+                payloadKind,
                 Instant.now(),
                 content);
         Path temporary = sessionDirectory.resolve("." + reference + "." + UUID.randomUUID() + ".tmp");
@@ -106,10 +115,31 @@ public final class FileContextResultStore {
         try {
             StoredResult stored = objectMapper.readValue(target.toFile(), StoredResult.class);
             if (stored == null
-                    || stored.version() != 1
+                    || (stored.version() != 1 && stored.version() != 2)
                     || !reference.equals(stored.reference())
                     || !sessionId.equals(stored.sessionId())
                     || stored.content() == null) {
+                throw ContextReductionException.resultNotFound();
+            }
+            /*
+             * 背景：Phase 1 之前的 v1 快照只有字符正文，没有参数/结果角色和语义类型。
+             * 设计意图：读取时把 v1 规范化为 RESULT + GENERIC_TEXT，v2 则保留显式元数据；不做离线迁移。
+             * 关键约束：不能把缺失元数据猜成 read/grep 等语义类型，否则旧快照的 offset 含义会从字符静默变成逻辑项。
+             */
+            if (stored.version() == 1) {
+                return new StoredResult(
+                        stored.version(),
+                        stored.reference(),
+                        stored.sessionId(),
+                        stored.runId(),
+                        stored.source(),
+                        stored.toolName(),
+                        PayloadRole.RESULT,
+                        PayloadKind.GENERIC_TEXT,
+                        stored.createdAt(),
+                        stored.content());
+            }
+            if (stored.payloadRole() == null || stored.payloadKind() == null) {
                 throw ContextReductionException.resultNotFound();
             }
             return stored;
@@ -142,6 +172,8 @@ public final class FileContextResultStore {
             String runId,
             String source,
             String toolName,
+            PayloadRole payloadRole,
+            PayloadKind payloadKind,
             Instant createdAt,
             String content) {
     }

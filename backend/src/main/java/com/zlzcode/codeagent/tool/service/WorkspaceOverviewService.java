@@ -27,7 +27,6 @@ import java.util.List;
 public class WorkspaceOverviewService implements ToolHandler {
 
     private static final int MAX_ENTRIES = 200;
-    private static final int MAX_RESULT_CHARS = 20_000;
     private final Duration executionTimeout;
 
     private final ObjectMapper objectMapper;
@@ -63,8 +62,9 @@ public class WorkspaceOverviewService implements ToolHandler {
     private ToolOutcome scan(Path workspaceRoot) {
         /*
          * 背景：工作区规模和内容不受服务控制，递归或无界扫描会拖慢请求并向模型暴露过多目录信息。
-         * 设计意图：只读取根目录，按稳定顺序输出，并同时限制条目数和序列化字符数。
-         * 关键约束：不得改为递归扫描或跟随链接；结果必须维持 200 个条目和 20000 个字符的上限。
+         * 设计意图：只读取根目录，按稳定顺序输出，并把业务上限内的完整条目交给统一载荷层处理模型容量。
+         * 关键约束：不得改为递归扫描或跟随链接；这里仅限制 200 个业务条目，不能再按展示字符数尾删，
+         * 否则载荷层拿不到工具已经交付的完整目录项快照。
          */
         final Path root;
         try {
@@ -89,15 +89,8 @@ public class WorkspaceOverviewService implements ToolHandler {
                     .thenComparing(Entry::name, String.CASE_INSENSITIVE_ORDER)
                     .thenComparing(Entry::name));
 
-            while (true) {
-                String content = objectMapper.writeValueAsString(new Overview(true, entries, truncated));
-                if (content.length() <= MAX_RESULT_CHARS || entries.isEmpty()) {
-                    String detail = presentation(entries, truncated);
-                    return new ToolOutcome(true, content, detail);
-                }
-                entries.remove(entries.size() - 1);
-                truncated = true;
-            }
+            String content = objectMapper.writeValueAsString(new Overview(true, entries, truncated));
+            return new ToolOutcome(true, content, presentation(entries, truncated));
         } catch (IOException | RuntimeException exception) {
             return ToolOutcome.failure(objectMapper,
                     "WORKSPACE_PERMISSION_DENIED",

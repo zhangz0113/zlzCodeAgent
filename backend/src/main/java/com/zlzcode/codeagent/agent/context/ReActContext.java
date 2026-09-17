@@ -34,6 +34,8 @@ public final class ReActContext {
     private final Set<String> knownCallIds = new HashSet<>();
     private final Set<String> completedCallIds = new HashSet<>();
     private final List<String> outstandingCallIds = new ArrayList<>();
+    private final Map<String, LlmToolCall> visibleCallsById = new HashMap<>();
+    private final Map<String, String> argumentRefsByCallId = new HashMap<>();
     private final List<ToolExecutionRecord> toolExecutions = new ArrayList<>();
     private int modelSteps;
     private Integer inputTokens;
@@ -110,20 +112,32 @@ public final class ReActContext {
     public void appendAssistantToolCalls(
             String content,
             String reasoningContent,
-            List<LlmToolCall> toolCalls) {
+            List<LlmToolCall> toolCalls,
+            Map<String, String> argumentRefs) {
         if (!outstandingCallIds.isEmpty()) {
             throw new IllegalStateException("Previous tool calls are still outstanding");
         }
         LlmMessage.AssistantToolCallsMessage message = new LlmMessage.AssistantToolCallsMessage(
                 content, reasoningContent, toolCalls);
         registerToolCalls(message.toolCalls());
+        if (argumentRefs != null) {
+            for (Map.Entry<String, String> entry : argumentRefs.entrySet()) {
+                if (!visibleCallsById.containsKey(entry.getKey())
+                        || entry.getValue() == null
+                        || entry.getValue().isBlank()) {
+                    throw new IllegalArgumentException("Tool argument reference does not match visible call");
+                }
+                argumentRefsByCallId.put(entry.getKey(), entry.getValue());
+            }
+        }
         messages.add(message);
     }
 
     /*
      * 背景：工具结果既要按原 call ID 回灌给下一轮模型，也要在 Run 成功时投影到 Session 和 SSE。
-     * 设计意图：在 Context 内一次完成消息状态和唯一工具记录的更新，避免两个输出列表分别维护。
-     * 关键约束：只有工具执行返回最终结果后才能调用，且结果必须严格匹配当前批次的模型调用顺序。
+     * 设计意图：在 Context 内用 call ID 合并“原始执行调用”和“模型可见调用”，消息与 Session 保存预览，执行事实只补结果。
+     * 关键约束：只有工具执行返回最终结果后才能调用，且结果必须严格匹配当前批次顺序；
+     * 不能把原始大参数重新写回消息或 Session，否则预执行快照失去控制后续请求容量的意义。
      */
     public void recordToolExecution(
             LlmToolCall call,
@@ -131,11 +145,16 @@ public final class ReActContext {
             String resultRef) {
         Objects.requireNonNull(call, "LLM tool call cannot be null");
         Objects.requireNonNull(outcome, "Tool outcome cannot be null");
+        LlmToolCall visibleCall = visibleCallsById.get(call.id());
+        if (visibleCall == null || !visibleCall.name().equals(call.name())) {
+            throw new IllegalStateException("Tool execution does not match visible call");
+        }
         appendToolResult(call.id(), outcome.modelContent());
         toolExecutions.add(new ToolExecutionRecord(
                 call.id(),
-                call.name(),
-                call.arguments() == null ? "" : call.arguments(),
+                visibleCall.name(),
+                visibleCall.arguments() == null ? "" : visibleCall.arguments(),
+                argumentRefsByCallId.get(call.id()),
                 outcome.modelContent(),
                 outcome.ok(),
                 outcome.presentation(),
@@ -218,7 +237,10 @@ public final class ReActContext {
                         executionRecord.presentation(),
                         executionRecord.resultRef());
         return new Session.ToolCall(
-                call.name(), call.arguments() == null ? "" : call.arguments(), result);
+                call.name(),
+                call.arguments() == null ? "" : call.arguments(),
+                executionRecord == null ? argumentRefsByCallId.get(call.id()) : executionRecord.argumentsRef(),
+                result);
     }
 
     private void appendToolResult(String callId, String content) {
@@ -258,6 +280,9 @@ public final class ReActContext {
             }
         }
         knownCallIds.addAll(newIds);
+        for (LlmToolCall call : toolCalls) {
+            visibleCallsById.put(call.id(), call);
+        }
         outstandingCallIds.addAll(toolCalls.stream().map(LlmToolCall::id).toList());
     }
 
@@ -305,6 +330,7 @@ public final class ReActContext {
             String callId,
             String name,
             String arguments,
+            String argumentsRef,
             String modelResult,
             boolean success,
             String presentation,

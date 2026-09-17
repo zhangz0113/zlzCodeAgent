@@ -16,7 +16,6 @@ import reactor.core.scheduler.Schedulers;
 import java.io.IOException;
 import java.nio.file.FileSystemException;
 import java.nio.file.NoSuchFileException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 
@@ -58,8 +57,7 @@ public class GlobService implements ToolHandler {
                     .limit(limits.maxResults())
                     .toList();
             boolean truncated = selection.incomplete() || selection.files().size() > paths.size();
-            GlobResult result = fit(new GlobResult(true, new ArrayList<>(paths), truncated),
-                    limits.maxResultChars());
+            GlobResult result = new GlobResult(true, paths, truncated);
             return new ToolOutcome(true, encode(result), "找到 " + result.paths().size() + " 个文件"
                     + (result.truncated() ? "；结果已截断" : ""));
         } catch (NoSuchFileException exception) {
@@ -82,16 +80,6 @@ public class GlobService implements ToolHandler {
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("Validated glob arguments could not be decoded", exception);
         }
-    }
-
-    private GlobResult fit(GlobResult result, int maxChars) {
-        List<String> paths = result.paths();
-        boolean truncated = result.truncated();
-        while (encode(new GlobResult(true, paths, truncated)).length() > maxChars && !paths.isEmpty()) {
-            paths.remove(paths.size() - 1);
-            truncated = true;
-        }
-        return new GlobResult(true, List.copyOf(paths), truncated);
     }
 
     private String encode(Object value) {
