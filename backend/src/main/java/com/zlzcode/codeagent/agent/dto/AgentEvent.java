@@ -6,7 +6,7 @@ import java.util.List;
 
 public sealed interface AgentEvent permits AgentEvent.Status, AgentEvent.TextDelta,
         AgentEvent.ToolStarted, AgentEvent.ToolFinished, AgentEvent.Completed, AgentEvent.Error,
-        AgentEvent.RunStarted {
+        AgentEvent.RunStarted, AgentEvent.AssistantStep {
 
     @JsonProperty("type")
     String type();
@@ -29,6 +29,13 @@ public sealed interface AgentEvent permits AgentEvent.Status, AgentEvent.TextDel
         @Override
         public String type() {
             return "text_delta";
+        }
+    }
+
+    record AssistantStep(String content) implements AgentEvent {
+        @Override
+        public String type() {
+            return "assistant_step";
         }
     }
 

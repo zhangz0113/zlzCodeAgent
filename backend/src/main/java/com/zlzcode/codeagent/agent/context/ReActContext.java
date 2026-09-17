@@ -13,8 +13,10 @@ import com.zlzcode.codeagent.tool.model.ToolOutcome;
 import com.zlzcode.codeagent.workspace.model.AuthorizedWorkspace;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -28,6 +30,7 @@ public final class ReActContext {
     private final RunContextPlan requestPlan;
     private final long startedAtNanos;
     private final List<LlmMessage> messages;
+    private final int currentRunMessageStart;
     private final Set<String> knownCallIds = new HashSet<>();
     private final Set<String> completedCallIds = new HashSet<>();
     private final List<String> outstandingCallIds = new ArrayList<>();
@@ -54,6 +57,7 @@ public final class ReActContext {
         for (LlmMessage message : initialMessages) {
             appendInitial(message);
         }
+        this.currentRunMessageStart = messages.size();
         if (!outstandingCallIds.isEmpty()) {
             throw new IllegalArgumentException("Initial Agent history contains outstanding tool calls");
         }
@@ -121,16 +125,21 @@ public final class ReActContext {
      * 设计意图：在 Context 内一次完成消息状态和唯一工具记录的更新，避免两个输出列表分别维护。
      * 关键约束：只有工具执行返回最终结果后才能调用，且结果必须严格匹配当前批次的模型调用顺序。
      */
-    public void recordToolExecution(LlmToolCall call, ToolOutcome outcome) {
+    public void recordToolExecution(
+            LlmToolCall call,
+            ToolOutcome outcome,
+            String resultRef) {
         Objects.requireNonNull(call, "LLM tool call cannot be null");
         Objects.requireNonNull(outcome, "Tool outcome cannot be null");
         appendToolResult(call.id(), outcome.modelContent());
         toolExecutions.add(new ToolExecutionRecord(
+                call.id(),
                 call.name(),
                 call.arguments() == null ? "" : call.arguments(),
                 outcome.modelContent(),
                 outcome.ok(),
-                outcome.presentation()));
+                outcome.presentation(),
+                resultRef));
     }
 
     public void appendFinalAssistant(String content) {
@@ -160,10 +169,56 @@ public final class ReActContext {
                 .toList();
         return new Completion(
                 finalAnswer,
+                sessionAssistantRecord(),
                 sessionTools,
                 eventTools,
                 new AgentEvent.RunMetrics(
                         modelSteps, durationMs, inputTokens, outputTokens));
+    }
+
+    /*
+     * 背景：Session 需要保留模型可见的工具轮次，而不能继续把同批调用压扁成互不相关的历史项。
+     * 设计意图：从 ReActContext 的唯一消息账本投影持久化记录，并用执行元数据补充成功状态、展示文本和结果引用；不建立第二套采集状态。
+     * 关键约束：hidden reasoning 和供应商 call ID 只能用于当前 Run，不能写入 Session；否则持久化格式会绑定供应商协议并泄露内部推理内容。
+     */
+    public Session.AssistantMessage sessionAssistantRecord() {
+        Map<String, ToolExecutionRecord> executions = new HashMap<>();
+        for (ToolExecutionRecord executionRecord : toolExecutions) {
+            executions.put(executionRecord.callId(), executionRecord);
+        }
+
+        List<Session.ToolRound> rounds = new ArrayList<>();
+        for (int index = currentRunMessageStart; index < messages.size(); index++) {
+            LlmMessage message = messages.get(index);
+            if (!(message instanceof LlmMessage.AssistantToolCallsMessage assistant)) {
+                continue;
+            }
+            List<Session.ToolCall> calls = assistant.toolCalls().stream()
+                    .map(call -> toSessionToolCall(call, executions.get(call.id())))
+                    .toList();
+            rounds.add(new Session.ToolRound(assistant.content(), calls));
+        }
+        return new Session.AssistantMessage(finalAnswer, rounds);
+    }
+
+    public boolean hasSessionActivity() {
+        return finalAnswer != null || !toolExecutions.isEmpty()
+                || messages.subList(currentRunMessageStart, messages.size()).stream()
+                .anyMatch(LlmMessage.AssistantToolCallsMessage.class::isInstance);
+    }
+
+    private Session.ToolCall toSessionToolCall(
+            LlmToolCall call,
+            ToolExecutionRecord executionRecord) {
+        Session.ToolResult result = executionRecord == null
+                ? null
+                : new Session.ToolResult(
+                        executionRecord.success(),
+                        executionRecord.modelResult(),
+                        executionRecord.presentation(),
+                        executionRecord.resultRef());
+        return new Session.ToolCall(
+                call.name(), call.arguments() == null ? "" : call.arguments(), result);
     }
 
     private void appendToolResult(String callId, String content) {
@@ -233,11 +288,13 @@ public final class ReActContext {
 
     public record Completion(
             String finalAnswer,
+            Session.AssistantMessage sessionRecord,
             List<Session.ToolHistory> sessionToolHistory,
             List<AgentEvent.ToolHistory> toolHistory,
             AgentEvent.RunMetrics metrics) {
 
         public Completion {
+            Objects.requireNonNull(sessionRecord, "Session record cannot be null");
             sessionToolHistory = List.copyOf(sessionToolHistory);
             toolHistory = List.copyOf(toolHistory);
             Objects.requireNonNull(metrics, "Run metrics cannot be null");
@@ -245,10 +302,12 @@ public final class ReActContext {
     }
 
     private record ToolExecutionRecord(
+            String callId,
             String name,
             String arguments,
             String modelResult,
             boolean success,
-            String presentation) {
+            String presentation,
+            String resultRef) {
     }
 }

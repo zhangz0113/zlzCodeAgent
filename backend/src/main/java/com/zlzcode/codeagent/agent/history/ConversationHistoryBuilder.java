@@ -34,19 +34,29 @@ public final class ConversationHistoryBuilder {
             messages.add(new LlmMessage.TextMessage(
                     LlmMessage.MessageRole.USER, turn.user().content()));
             /*
-             * 背景：Session 只持久化跨 Run 所需的工具摘要，但模型续聊仍要求合法的
-             * assistant tool_calls -> tool -> assistant 消息序列。
-             * 设计意图：由后端根据已校验快照构造关联 ID，不把持久化摘要误当成可再次执行的工具请求。
-             * 关键约束：每条工具结果必须紧跟对应调用，合成 ID 只能用于历史重建，不能授权工具执行。
+             * 背景：Session 保存供应商无关的工具批次，后续模型请求仍要求合法的 assistant tool_calls -> tool 序列。
+             * 设计意图：按原批次和顺序重建消息，并为本次请求生成临时关联 ID；不持久化供应商原始 ID。
+             * 关键约束：同批调用必须位于一条 AssistantToolCalls 消息中，且每个结果严格按调用顺序追加；拆批或重排会改变模型看到的协议语义。
              */
-            for (int toolIndex = 0; toolIndex < turn.assistant().toolHistory().size(); toolIndex++) {
-                Session.ToolHistory exchange = turn.assistant().toolHistory().get(toolIndex);
-                String callId = "history_" + turnIndex + "_" + toolIndex;
-                LlmToolCall call = new LlmToolCall(
-                        callId, exchange.name(), exchange.arguments());
+            for (int roundIndex = 0;
+                    roundIndex < turn.assistant().toolRounds().size();
+                    roundIndex++) {
+                Session.ToolRound round = turn.assistant().toolRounds().get(roundIndex);
+                List<LlmToolCall> calls = new ArrayList<>(round.calls().size());
+                for (int callIndex = 0; callIndex < round.calls().size(); callIndex++) {
+                    Session.ToolCall storedCall = round.calls().get(callIndex);
+                    String callId = "history_" + turnIndex + "_" + roundIndex + "_" + callIndex;
+                    calls.add(new LlmToolCall(
+                            callId, storedCall.name(), storedCall.arguments()));
+                }
                 messages.add(new LlmMessage.AssistantToolCallsMessage(
-                        null, null, List.of(call)));
-                messages.add(new LlmMessage.ToolResultMessage(callId, exchange.result()));
+                        round.assistantContent(), null, calls));
+                for (int callIndex = 0; callIndex < round.calls().size(); callIndex++) {
+                    Session.ToolCall storedCall = round.calls().get(callIndex);
+                    String callId = "history_" + turnIndex + "_" + roundIndex + "_" + callIndex;
+                    messages.add(new LlmMessage.ToolResultMessage(
+                            callId, storedCall.result().modelContent()));
+                }
             }
             messages.add(new LlmMessage.TextMessage(
                     LlmMessage.MessageRole.ASSISTANT, turn.assistant().content()));

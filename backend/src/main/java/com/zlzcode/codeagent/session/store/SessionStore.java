@@ -27,7 +27,8 @@ import java.util.regex.Pattern;
 @Component
 public final class SessionStore {
 
-    private static final int STATE_VERSION = 1;
+    private static final int STATE_VERSION = 2;
+    private static final int LEGACY_STATE_VERSION = 1;
     private static final int MAX_FILE_BYTES = 8 * 1024 * 1024;
     private static final int MAX_TURNS = 1_000;
     private static final int MAX_MESSAGE_CHARS = 100_000;
@@ -150,13 +151,15 @@ public final class SessionStore {
 
     private Session validateAndMap(SessionFile file, String expectedSessionId) {
         if (file == null
-                || file.version() != STATE_VERSION
+                || (file.version() != STATE_VERSION && file.version() != LEGACY_STATE_VERSION)
                 || !expectedSessionId.equals(file.sessionId())) {
             throw SessionException.stateCorrupted();
         }
         Session session = new Session(
                 file.sessionId(), file.workspaceId(), file.createdAt(), file.updatedAt(),
-                file.turns() == null ? List.of() : file.turns().stream().map(TurnFile::toModel).toList());
+                file.turns() == null ? List.of() : file.turns().stream()
+                        .map(turn -> turn.toModel(file.version()))
+                        .toList());
         validateSession(session, SessionException::stateCorrupted);
         return session;
     }
@@ -194,26 +197,70 @@ public final class SessionStore {
         }
         if (turn.state() == Session.TurnState.INCOMPLETE) {
             if (turn.assistant() != null) {
-                throw invalidState.get();
+                validateAssistant(turn.assistant(), false, invalidState);
             }
             return;
         }
-        if (turn.assistant() == null || invalidContent(turn.assistant().content())
-                || turn.assistant().toolHistory().size() > MAX_TOOL_HISTORY) {
+        if (turn.assistant() == null || invalidContent(turn.assistant().content())) {
             throw invalidState.get();
         }
-        for (Session.ToolHistory tool : turn.assistant().toolHistory()) {
-            if (tool == null
-                    || tool.name() == null
-                    || tool.name().isBlank()
-                    || tool.name().length() > MAX_TOOL_NAME_CHARS
-                    || !TOOL_NAME_PATTERN.matcher(tool.name()).matches()
-                    || tool.arguments() == null
-                    || tool.arguments().length() > MAX_TOOL_VALUE_CHARS
-                    || tool.result() == null
-                    || tool.result().length() > MAX_TOOL_VALUE_CHARS) {
+        validateAssistant(turn.assistant(), true, invalidState);
+    }
+
+    private void validateAssistant(
+            Session.AssistantMessage assistant,
+            boolean completed,
+            Supplier<SessionException> invalidState) {
+        if (assistant == null
+                || (assistant.content() != null
+                && assistant.content().length() > MAX_MESSAGE_CHARS)) {
+            throw invalidState.get();
+        }
+        int toolCalls = 0;
+        for (Session.ToolRound round : assistant.toolRounds()) {
+            if (round == null
+                    || round.calls().isEmpty()
+                    || (round.assistantContent() != null
+                    && round.assistantContent().length() > MAX_MESSAGE_CHARS)) {
                 throw invalidState.get();
             }
+            toolCalls += round.calls().size();
+            if (toolCalls > MAX_TOOL_HISTORY) {
+                throw invalidState.get();
+            }
+            for (Session.ToolCall call : round.calls()) {
+                validateToolCall(call, completed, invalidState);
+            }
+        }
+        if (assistant.content() == null && assistant.toolRounds().isEmpty()) {
+            throw invalidState.get();
+        }
+    }
+
+    private void validateToolCall(
+            Session.ToolCall call,
+            boolean completed,
+            Supplier<SessionException> invalidState) {
+        if (call == null
+                || call.name() == null
+                || call.name().isBlank()
+                || call.name().length() > MAX_TOOL_NAME_CHARS
+                || !TOOL_NAME_PATTERN.matcher(call.name()).matches()
+                || call.arguments() == null
+                || call.arguments().length() > MAX_TOOL_VALUE_CHARS
+                || (completed && call.result() == null)) {
+            throw invalidState.get();
+        }
+        Session.ToolResult result = call.result();
+        if (result == null) {
+            return;
+        }
+        if (result.modelContent() == null
+                || result.modelContent().length() > MAX_TOOL_VALUE_CHARS
+                || (result.presentation() != null
+                && result.presentation().length() > MAX_TOOL_VALUE_CHARS)
+                || (result.resultRef() != null && result.resultRef().length() > 256)) {
+            throw invalidState.get();
         }
     }
 
@@ -266,7 +313,7 @@ public final class SessionStore {
             String state,
             Instant createdAt,
             Session.UserMessage user,
-            Session.AssistantMessage assistant) {
+            AssistantFile assistant) {
 
         private static TurnFile from(Session.Turn turn) {
             return new TurnFile(
@@ -274,17 +321,51 @@ public final class SessionStore {
                     turn.state().name().toLowerCase(Locale.ROOT),
                     turn.createdAt(),
                     turn.user(),
-                    turn.assistant());
+                    turn.assistant() == null ? null : AssistantFile.from(turn.assistant()));
         }
 
-        private Session.Turn toModel() {
+        private Session.Turn toModel(int version) {
             Session.TurnState parsedState;
             try {
                 parsedState = Session.TurnState.valueOf(state.toUpperCase(Locale.ROOT));
             } catch (RuntimeException exception) {
                 throw SessionException.stateCorrupted();
             }
-            return new Session.Turn(runId, parsedState, createdAt, user, assistant);
+            return new Session.Turn(
+                    runId,
+                    parsedState,
+                    createdAt,
+                    user,
+                    assistant == null ? null : assistant.toModel(version));
+        }
+    }
+
+    private record AssistantFile(
+            String content,
+            List<Session.ToolRound> toolRounds,
+            List<Session.ToolHistory> toolHistory) {
+
+        private static AssistantFile from(Session.AssistantMessage assistant) {
+            return new AssistantFile(assistant.content(), assistant.toolRounds(), null);
+        }
+
+        private Session.AssistantMessage toModel(int version) {
+            if (version == STATE_VERSION) {
+                return new Session.AssistantMessage(
+                        content, toolRounds == null ? List.of() : toolRounds);
+            }
+            List<Session.ToolRound> legacyRounds = toolHistory == null
+                    ? List.of()
+                    : toolHistory.stream()
+                    .map(tool -> new Session.ToolRound(
+                            null,
+                            List.of(new Session.ToolCall(
+                                    tool.name(),
+                                    tool.arguments(),
+                                    new Session.ToolResult(
+                                            true, tool.result(), null, null)))))
+                    .toList();
+            return new Session.AssistantMessage(content, legacyRounds);
         }
     }
 }
