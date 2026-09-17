@@ -127,6 +127,40 @@ public final class ContextReductionModule {
     public AssembledRequest reduceRequest(
             ReductionScope scope,
             RequestDraft draft) {
+        ReductionAttempt attempt = reduceAllowedPayloads(scope, draft);
+        if (attempt.capacity().estimatedTokensAfter() > attempt.capacity().inputTokenBudget()) {
+            throw ContextReductionException.capacityExceeded();
+        }
+
+        List<ContextEntry> finalEntries = attempt.entries();
+        LlmRequest request = new LlmRequest(
+                draft.model(),
+                draft.reasoningEffort(),
+                finalEntries.stream().map(ContextEntry::message).toList(),
+                draft.availableTools());
+        RequestComposition composition = new RequestComposition(
+                draft.runId(),
+                toMessageEntries(finalEntries),
+                draft.availableTools().stream().map(LlmRequest.ToolDeclaration::name).toList(),
+                attempt.capacity(),
+                attempt.reductions());
+        return new AssembledRequest(request, composition);
+    }
+
+    public CapacityReport measureAfterAllowedReduction(
+            ReductionScope scope,
+            RequestDraft draft) {
+        /*
+         * 背景：历史压缩只有在全部 Phase 1 候选耗尽后仍超预算时才允许触发。
+         * 设计意图：复用正式请求的同一缩减过程并返回容量报告，不复制一套近似预检算法。
+         * 关键约束：该入口不能放宽候选范围或吞掉存储失败；否则预检结论会与真正模型请求不一致。
+         */
+        return reduceAllowedPayloads(scope, draft).capacity();
+    }
+
+    private ReductionAttempt reduceAllowedPayloads(
+            ReductionScope scope,
+            RequestDraft draft) {
         Objects.requireNonNull(scope, "Reduction scope cannot be null");
         Objects.requireNonNull(draft, "Request draft cannot be null");
         if (!scope.runId().equals(draft.runId())) {
@@ -135,7 +169,7 @@ public final class ContextReductionModule {
 
         List<ContextEntry> visible = new ArrayList<>(draft.entries());
         List<ReductionRecord> reductions = new ArrayList<>();
-        int budget = properties.contextWindowTokens() - properties.reservedOutputTokens();
+        int budget = hardInputBudget();
         int before = estimateTokens(draft, visible);
         int after = before;
 
@@ -166,28 +200,12 @@ public final class ContextReductionModule {
 
         }
 
-        if (after > budget) {
-            throw ContextReductionException.capacityExceeded();
-        }
-
-        List<ContextEntry> finalEntries = List.copyOf(visible);
-        LlmRequest request = new LlmRequest(
-                draft.model(),
-                draft.reasoningEffort(),
-                finalEntries.stream().map(ContextEntry::message).toList(),
-                draft.availableTools());
         CapacityReport capacity = new CapacityReport(
                 before,
                 budget,
                 properties.reservedOutputTokens(),
                 after);
-        RequestComposition composition = new RequestComposition(
-                draft.runId(),
-                toMessageEntries(finalEntries),
-                draft.availableTools().stream().map(LlmRequest.ToolDeclaration::name).toList(),
-                capacity,
-                reductions);
-        return new AssembledRequest(request, composition);
+        return new ReductionAttempt(List.copyOf(visible), capacity, List.copyOf(reductions));
     }
 
     public RetrievedContent retrieveToolResult(
@@ -218,6 +236,20 @@ public final class ContextReductionModule {
         } catch (IllegalArgumentException exception) {
             throw ContextReductionException.rangeInvalid();
         }
+    }
+
+    public int hardInputBudget() {
+        return properties.contextWindowTokens() - properties.reservedOutputTokens();
+    }
+
+    public int estimateRequestTokens(RequestDraft draft) {
+        Objects.requireNonNull(draft, "Request draft cannot be null");
+        return estimateTokens(draft, draft.entries());
+    }
+
+    public int estimateRequestTokens(LlmRequest request) {
+        Objects.requireNonNull(request, "LLM request cannot be null");
+        return estimateSerializedTokens(request);
     }
 
     private ReductionRecord reduceToolResultEntry(
@@ -323,6 +355,10 @@ public final class ContextReductionModule {
                 draft.reasoningEffort(),
                 entries.stream().map(ContextEntry::message).toList(),
                 draft.availableTools());
+        return estimateSerializedTokens(request);
+    }
+
+    private int estimateSerializedTokens(LlmRequest request) {
         try {
             String json = objectMapper.writeValueAsString(request);
             long ascii = 0;
@@ -406,6 +442,12 @@ public final class ContextReductionModule {
 
     private int codePointLength(String value) {
         return value.codePointCount(0, value.length());
+    }
+
+    private record ReductionAttempt(
+            List<ContextEntry> entries,
+            CapacityReport capacity,
+            List<ReductionRecord> reductions) {
     }
 
 }

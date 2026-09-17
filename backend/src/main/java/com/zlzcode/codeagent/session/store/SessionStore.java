@@ -27,7 +27,8 @@ import java.util.regex.Pattern;
 @Component
 public final class SessionStore {
 
-    private static final int STATE_VERSION = 3;
+    private static final int STATE_VERSION = 4;
+    private static final int REFERENCE_STATE_VERSION = 3;
     private static final int STRUCTURED_STATE_VERSION = 2;
     private static final int LEGACY_STATE_VERSION = 1;
     private static final int MAX_FILE_BYTES = 8 * 1024 * 1024;
@@ -152,13 +153,14 @@ public final class SessionStore {
 
     private Session validateAndMap(SessionFile file, String expectedSessionId) {
         /*
-         * 背景：v1 只有扁平 toolHistory，v2 引入结构化工具 round，v3 才为大型参数增加 argumentsRef。
-         * 设计意图：新写入统一使用 v3，读取时在内存中把 v1/v2 投影为当前模型，不建设一次性迁移工具。
+         * 背景：v1 只有扁平 toolHistory，v2 引入结构化工具 round，v3 增加 argumentsRef，v4 增加历史检查点。
+         * 设计意图：新写入统一使用 v4，读取时在内存中把 v1-v3 投影为当前模型，不建设一次性迁移工具。
          * 关键约束：v1 的扁平顺序和 v2 的完整参数必须原样保留；不能把缺失 argumentsRef 当成损坏，
-         * 否则升级后既有 Session 将全部无法继续读取。
+         * 也不能把旧版本缺失检查点当成损坏，否则升级后既有 Session 将全部无法继续读取。
          */
         if (file == null
                 || (file.version() != STATE_VERSION
+                && file.version() != REFERENCE_STATE_VERSION
                 && file.version() != STRUCTURED_STATE_VERSION
                 && file.version() != LEGACY_STATE_VERSION)
                 || !expectedSessionId.equals(file.sessionId())) {
@@ -166,6 +168,7 @@ public final class SessionStore {
         }
         Session session = new Session(
                 file.sessionId(), file.workspaceId(), file.createdAt(), file.updatedAt(),
+                file.version() == STATE_VERSION ? file.historyCheckpoint() : null,
                 file.turns() == null ? List.of() : file.turns().stream()
                         .map(turn -> turn.toModel(file.version()))
                         .toList());
@@ -188,6 +191,26 @@ public final class SessionStore {
         Set<String> runIds = new HashSet<>();
         for (Session.Turn turn : session.turns()) {
             validateTurn(turn, runIds, invalidState);
+        }
+        validateHistoryCheckpoint(session, invalidState);
+    }
+
+    private void validateHistoryCheckpoint(
+            Session session,
+            Supplier<SessionException> invalidState) {
+        Session.HistoryCheckpoint checkpoint = session.historyCheckpoint();
+        if (checkpoint == null) {
+            return;
+        }
+        if (invalidContent(checkpoint.summaryContent())
+                || !validId(checkpoint.coveredThroughRunId())) {
+            throw invalidState.get();
+        }
+        boolean coveredCompletedTurn = session.turns().stream()
+                .anyMatch(turn -> turn.state() == Session.TurnState.COMPLETED
+                        && turn.runId().equals(checkpoint.coveredThroughRunId()));
+        if (!coveredCompletedTurn) {
+            throw invalidState.get();
         }
     }
 
@@ -305,6 +328,7 @@ public final class SessionStore {
             String workspaceId,
             Instant createdAt,
             Instant updatedAt,
+            Session.HistoryCheckpoint historyCheckpoint,
             List<TurnFile> turns) {
 
         private static SessionFile from(Session session) {
@@ -314,6 +338,7 @@ public final class SessionStore {
                     session.workspaceId(),
                     session.createdAt(),
                     session.updatedAt(),
+                    session.historyCheckpoint(),
                     session.turns().stream().map(TurnFile::from).toList());
         }
     }
@@ -360,7 +385,7 @@ public final class SessionStore {
         }
 
         private Session.AssistantMessage toModel(int version) {
-            if (version == STATE_VERSION || version == STRUCTURED_STATE_VERSION) {
+            if (version >= STRUCTURED_STATE_VERSION) {
                 return new Session.AssistantMessage(
                         content, toolRounds == null ? List.of() : toolRounds);
             }

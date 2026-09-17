@@ -11,8 +11,7 @@ import com.zlzcode.codeagent.agent.model.RunExecution;
 import com.zlzcode.codeagent.agent.model.RunRecord;
 import com.zlzcode.codeagent.agent.model.RunStatus;
 import com.zlzcode.codeagent.agent.store.RunStore;
-import com.zlzcode.codeagent.context.model.RunContextPlan;
-import com.zlzcode.codeagent.context.service.ModelRequestAssembler;
+import com.zlzcode.codeagent.context.service.HistoryCompactionService;
 import com.zlzcode.codeagent.session.model.SessionRunSnapshot;
 import com.zlzcode.codeagent.session.service.SessionService;
 import com.zlzcode.codeagent.tool.model.MutationPlan;
@@ -51,7 +50,7 @@ final class AgentRunExecutor {
     private final ToolRegistry toolRegistry;
     private final ApprovalService approvalService;
     private final AgentRunExceptionMapper exceptionMapper;
-    private final ModelRequestAssembler requestAssembler;
+    private final HistoryCompactionService historyCompactionService;
     private final SessionService sessionService;
     private final RunStore runStore;
     private final AgentRunScheduler scheduler;
@@ -69,7 +68,7 @@ final class AgentRunExecutor {
             ToolRegistry toolRegistry,
             ApprovalService approvalService,
             AgentRunExceptionMapper exceptionMapper,
-            ModelRequestAssembler requestAssembler,
+            HistoryCompactionService historyCompactionService,
             SessionService sessionService,
             RunStore runStore,
             AgentRunScheduler scheduler,
@@ -80,7 +79,7 @@ final class AgentRunExecutor {
         this.toolRegistry = toolRegistry;
         this.approvalService = approvalService;
         this.exceptionMapper = exceptionMapper;
-        this.requestAssembler = requestAssembler;
+        this.historyCompactionService = historyCompactionService;
         this.sessionService = sessionService;
         this.runStore = runStore;
         this.scheduler = scheduler;
@@ -129,20 +128,24 @@ final class AgentRunExecutor {
                     long startedAt = System.nanoTime();
                     return Mono.fromCallable(() -> workspaceRegistry.resolve(sessionRun.workspaceId()))
                             .subscribeOn(Schedulers.boundedElastic())
-                            .flatMap(workspace -> {
-                                RunContextPlan requestPlan = requestAssembler.prepare(
-                                        workspace, sessionRun, AgentLlmContract.systemPrompt());
-                                ReActContext context = new ReActContext(
-                                        execution, workspace, requestPlan, startedAt);
-                                active.bindContext(context);
-                                ToolApprovalCoordinator approvalCoordinator =
-                                        (toolContext, plan) -> awaitApprovalOutcome(
-                                                execution, active, toolContext, plan);
-                                return reActLoop.run(context, approvalCoordinator)
-                                        .doOnNext(active::emit)
-                                        .then(Mono.defer(() -> complete(
-                                                execution, sessionRun, context, active)));
-                            });
+                            .flatMap(workspace -> historyCompactionService.prepareRunPlan(
+                                            execution,
+                                            workspace,
+                                            sessionRun,
+                                            AgentLlmContract.systemPrompt(),
+                                            toolRegistry.modelToolDeclarations())
+                                    .flatMap(requestPlan -> {
+                                        ReActContext context = new ReActContext(
+                                                execution, workspace, requestPlan, startedAt);
+                                        active.bindContext(context);
+                                        ToolApprovalCoordinator approvalCoordinator =
+                                                (toolContext, plan) -> awaitApprovalOutcome(
+                                                        execution, active, toolContext, plan);
+                                        return reActLoop.run(context, approvalCoordinator)
+                                                .doOnNext(active::emit)
+                                                .then(Mono.defer(() -> complete(
+                                                        execution, sessionRun, context, active)));
+                                    }));
                 })
                 .timeout(runTimeout)
                 .doOnError(error -> {
