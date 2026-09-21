@@ -19,6 +19,12 @@ public final class AgentLlmContract {
             tool results, and explain what you cannot verify.
             Make tool calls through the tool-call protocol; do not include raw tool-call
             protocol text in ordinary replies.
+            For non-trivial multi-step work, maintain the complete structured task plan with
+            the available planning tool. Treat the plan as your current intent, not as proof
+            that an action succeeded. After tool results or new user guidance, compare the
+            goal, plan, and observed facts; revise the plan before continuing when they differ.
+            Simple single-step work does not need a task plan. Before the final answer, update
+            any maintained plan to reflect the work that actually completed.
             """.trim();
 
     private AgentLlmContract() {
