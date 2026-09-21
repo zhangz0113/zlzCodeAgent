@@ -6,6 +6,8 @@ import com.zlzcode.codeagent.context.model.RunContextPlan;
 import com.zlzcode.codeagent.context.model.RunContextPlan.ContextEntry;
 import com.zlzcode.codeagent.context.model.RunContextPlan.MaterialKind;
 import com.zlzcode.codeagent.context.model.RunContextPlan.MaterialScope;
+import com.zlzcode.codeagent.memory.model.Memory;
+import com.zlzcode.codeagent.memory.service.MemorySelectionService;
 import com.zlzcode.codeagent.session.model.Session;
 import com.zlzcode.codeagent.session.model.SessionRunSnapshot;
 import com.zlzcode.codeagent.validation.RequestContractException;
@@ -29,9 +31,13 @@ public final class ModelRequestAssembler {
     private static final List<String> ROOT_INSTRUCTION_FILES = List.of("AGENTS.md", "agent.md");
 
     private final ConversationHistoryBuilder historyBuilder;
+    private final MemorySelectionService memorySelectionService;
 
-    public ModelRequestAssembler(ConversationHistoryBuilder historyBuilder) {
+    public ModelRequestAssembler(
+            ConversationHistoryBuilder historyBuilder,
+            MemorySelectionService memorySelectionService) {
         this.historyBuilder = historyBuilder;
+        this.memorySelectionService = memorySelectionService;
     }
 
     /*
@@ -72,6 +78,17 @@ public final class ModelRequestAssembler {
                 MaterialKind.WORKSPACE_ENVIRONMENT,
                 "workspace:" + workspace.id() + "/environment",
                 MaterialScope.WORKSPACE_ROOT));
+
+        Memory.Selection memory = memorySelectionService.select(
+                sessionRun.workspaceId(), sessionRun.prompt());
+        if (!memory.empty()) {
+            entries.add(entry(
+                    new LlmMessage.TextMessage(
+                            LlmMessage.MessageRole.USER, memory.promptContent()),
+                    MaterialKind.LONG_TERM_MEMORY,
+                    "memory:workspace:" + workspace.id() + "/selection",
+                    MaterialScope.WORKSPACE_ROOT));
+        }
 
         Session.HistoryCheckpoint checkpoint = sessionRun.historyCheckpoint();
         if (checkpoint != null) {

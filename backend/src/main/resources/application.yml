@@ -20,6 +20,14 @@ logging:
       total-size-cap: 50MB
 
 codeagent:
+  memory:
+    state-file: ${CODEAGENT_MEMORY_STATE_FILE:../memories/memories.json}
+    max-entries: 1000
+    max-selected-entries: 12
+    selection-token-budget: 1200
+    consolidation-max-operations: 8
+    consolidation-max-output-tokens: 1024
+    consolidation-timeout: PT20S
   context:
     context-window-tokens: 32768
     reserved-output-tokens: 4096
