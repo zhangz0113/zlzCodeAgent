@@ -9,6 +9,7 @@ import com.zlzcode.codeagent.openai.exception.OpenAiIntegrationException;
 import com.zlzcode.codeagent.session.exception.SessionException;
 import com.zlzcode.codeagent.agent.exception.RunException;
 import com.zlzcode.codeagent.agent.exception.ApprovalException;
+import com.zlzcode.codeagent.task.exception.TaskProgressException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -99,6 +100,14 @@ public class ApiExceptionHandler {
             default -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
         return response(status, exception.code(), exception.getMessage(), exception.retryable());
+    }
+
+    @ExceptionHandler(TaskProgressException.class)
+    public ResponseEntity<ApiErrorResponse> handleTaskProgress(TaskProgressException exception) {
+        HttpStatus status = TaskProgressException.RUN_NOT_FOUND_CODE.equals(exception.code())
+                ? HttpStatus.NOT_FOUND
+                : HttpStatus.CONFLICT;
+        return response(status, exception.code(), exception.getMessage(), false);
     }
 
     private ResponseEntity<ApiErrorResponse> response(

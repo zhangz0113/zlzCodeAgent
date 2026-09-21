@@ -2,6 +2,7 @@ import { ArrowUp, Folder, Settings2, Square } from 'lucide-react'
 import type { KeyboardEvent } from 'react'
 import {
   MAX_PROMPT_LENGTH,
+  MAX_INTERVENTION_LENGTH,
   type OpenAIModel,
   type Workspace,
 } from '../domain'
@@ -16,6 +17,8 @@ interface ComposerProps {
   reasoningEffort: string
   reasoningEfforts: readonly ReasoningEffortOption[]
   running: boolean
+  interventionReady: boolean
+  interventionSubmitting: boolean
   workspacePicking: boolean
   enterToSend: boolean
   hero?: boolean
@@ -37,6 +40,8 @@ export function Composer({
   reasoningEffort,
   reasoningEfforts,
   running,
+  interventionReady,
+  interventionSubmitting,
   workspacePicking,
   enterToSend,
   hero = false,
@@ -49,12 +54,14 @@ export function Composer({
   onCancel,
 }: ComposerProps) {
   const promptLength = draft.trim().length
+  const maxLength = running ? MAX_INTERVENTION_LENGTH : MAX_PROMPT_LENGTH
   const canSend = workspace !== undefined
     && configured
     && model.length > 0
     && promptLength > 0
-    && promptLength <= MAX_PROMPT_LENGTH
-    && !running
+    && promptLength <= maxLength
+    && (!running || interventionReady)
+    && !interventionSubmitting
     && !workspacePicking
   const needsWorkspace = workspace === undefined
   const needsConfiguration = !configured
@@ -64,7 +71,11 @@ export function Composer({
       ? '选择一个工作区开始'
       : needsConfiguration
         ? '先在设置中配置 OpenAI 连接'
-        : '输入消息'
+        : running
+          ? interventionReady
+            ? '补充要求将在当前工具批次结束后生效'
+            : '正在建立 Run，请稍候…'
+          : '输入消息'
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (!enterToSend || event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return
@@ -88,9 +99,10 @@ export function Composer({
         onClick={needsWorkspace && !workspacePicking && !running ? onChooseWorkspace : undefined}
       >
         <textarea
-          aria-label="消息输入"
-          disabled={needsWorkspace || needsConfiguration || running || workspacePicking}
-          maxLength={MAX_PROMPT_LENGTH}
+          aria-label={running ? '补充要求' : '消息输入'}
+          disabled={needsWorkspace || needsConfiguration || workspacePicking
+            || (running && !interventionReady)}
+          maxLength={maxLength}
           onChange={event => onDraftChange(event.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
@@ -139,9 +151,23 @@ export function Composer({
               ))}
             </select>
             {running ? (
-              <button aria-label="停止运行" className="sendButton stopButton" onClick={onCancel} type="button">
-                <Square fill="currentColor" size={13} />
-              </button>
+              <>
+                <button aria-label="停止接收" className="sendButton stopButton" onClick={onCancel} type="button">
+                  <Square fill="currentColor" size={13} />
+                </button>
+                <button
+                  aria-label="发送补充要求"
+                  className="sendButton"
+                  disabled={!canSend}
+                  onClick={event => {
+                    event.stopPropagation()
+                    onSubmit()
+                  }}
+                  type="button"
+                >
+                  <ArrowUp size={19} strokeWidth={2.4} />
+                </button>
+              </>
             ) : (
               <button
                 aria-label="发送消息"

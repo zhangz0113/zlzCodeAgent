@@ -1,6 +1,8 @@
 package com.zlzcode.codeagent.session.dto;
 
 import com.zlzcode.codeagent.session.model.Session;
+import com.zlzcode.codeagent.task.model.RunIntervention;
+import com.zlzcode.codeagent.task.model.TaskPlan;
 
 import java.time.Instant;
 import java.util.List;
@@ -45,13 +47,17 @@ public record SessionResponse(
     public record AssistantResponse(
             String content,
             List<ToolRoundResponse> toolRounds,
-            List<ToolHistoryResponse> toolHistory) {
+            List<ToolHistoryResponse> toolHistory,
+            TaskPlan taskPlan,
+            List<RunIntervention> interventions) {
 
         private static AssistantResponse from(Session.AssistantMessage assistant) {
             return new AssistantResponse(
                     assistant.content(),
                     assistant.toolRounds().stream().map(ToolRoundResponse::from).toList(),
-                    assistant.toolHistory().stream().map(ToolHistoryResponse::from).toList());
+                    assistant.toolHistory().stream().map(ToolHistoryResponse::from).toList(),
+                    assistant.taskPlan(),
+                    assistant.interventions());
         }
     }
 

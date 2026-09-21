@@ -9,6 +9,8 @@ import com.zlzcode.codeagent.agent.model.RunExecution;
 import com.zlzcode.codeagent.context.model.RunContextPlan;
 import com.zlzcode.codeagent.context.model.ContextReduction.ReductionScope;
 import com.zlzcode.codeagent.session.model.Session;
+import com.zlzcode.codeagent.task.model.RunIntervention;
+import com.zlzcode.codeagent.task.model.TaskPlan;
 import com.zlzcode.codeagent.tool.model.ToolOutcome;
 import com.zlzcode.codeagent.workspace.model.AuthorizedWorkspace;
 
@@ -37,10 +39,13 @@ public final class ReActContext {
     private final Map<String, LlmToolCall> visibleCallsById = new HashMap<>();
     private final Map<String, String> argumentRefsByCallId = new HashMap<>();
     private final List<ToolExecutionRecord> toolExecutions = new ArrayList<>();
+    private final List<RunIntervention> interventions = new ArrayList<>();
     private int modelSteps;
+    private int completedToolRounds;
     private Integer inputTokens;
     private Integer outputTokens;
     private String finalAnswer;
+    private TaskPlan taskPlan;
 
     public ReActContext(
             RunExecution execution,
@@ -75,6 +80,46 @@ public final class ReActContext {
 
     public List<LlmMessage> messagesSnapshot() {
         return List.copyOf(messages);
+    }
+
+    /*
+     * 背景：运行中的用户补充要求可能在模型调用或工具批次执行期间到达，只有批次完整结束后才能合法进入消息历史。
+     * 设计意图：由 ReAct 的模型请求前边界提供已经标注位置的 Intervention，Context 同时更新模型消息和持久化语义记录。
+     * 关键约束：不能在存在悬空 tool call 时追加用户消息，也不能改变 appliedAfterToolRound；否则当前请求与 Session 重放会观察到不同顺序。
+     */
+    public void appendInterventions(List<RunIntervention> incoming) {
+        if (!outstandingCallIds.isEmpty()) {
+            throw new IllegalStateException("Cannot append user guidance with outstanding tool calls");
+        }
+        for (RunIntervention intervention : incoming == null ? List.<RunIntervention>of() : incoming) {
+            Objects.requireNonNull(intervention, "Run intervention cannot be null");
+            if (intervention.appliedAfterToolRound() == null
+                    || intervention.appliedAfterToolRound() != completedToolRounds) {
+                throw new IllegalStateException("Run intervention was applied at a different tool round");
+            }
+            messages.add(new LlmMessage.TextMessage(
+                    LlmMessage.MessageRole.USER, intervention.content()));
+            interventions.add(intervention);
+        }
+    }
+
+    public void recordTaskPlan(TaskPlan plan) {
+        taskPlan = Objects.requireNonNull(plan, "Task plan cannot be null");
+    }
+
+    public TaskPlan taskPlan() {
+        return taskPlan;
+    }
+
+    public int completedToolRounds() {
+        return completedToolRounds;
+    }
+
+    public void completeToolRound() {
+        if (!outstandingCallIds.isEmpty()) {
+            throw new IllegalStateException("Cannot complete a tool round with outstanding calls");
+        }
+        completedToolRounds++;
     }
 
     /*
@@ -191,6 +236,8 @@ public final class ReActContext {
                 sessionAssistantRecord(),
                 sessionTools,
                 eventTools,
+                taskPlan,
+                List.copyOf(interventions),
                 new AgentEvent.RunMetrics(
                         modelSteps, durationMs, inputTokens, outputTokens));
     }
@@ -217,11 +264,13 @@ public final class ReActContext {
                     .toList();
             rounds.add(new Session.ToolRound(assistant.content(), calls));
         }
-        return new Session.AssistantMessage(finalAnswer, rounds);
+        return new Session.AssistantMessage(
+                finalAnswer, rounds, taskPlan, List.copyOf(interventions));
     }
 
     public boolean hasSessionActivity() {
         return finalAnswer != null || !toolExecutions.isEmpty()
+                || taskPlan != null || !interventions.isEmpty()
                 || messages.subList(currentRunMessageStart, messages.size()).stream()
                 .anyMatch(LlmMessage.AssistantToolCallsMessage.class::isInstance);
     }
@@ -316,12 +365,15 @@ public final class ReActContext {
             Session.AssistantMessage sessionRecord,
             List<Session.ToolHistory> sessionToolHistory,
             List<AgentEvent.ToolHistory> toolHistory,
+            TaskPlan taskPlan,
+            List<RunIntervention> interventions,
             AgentEvent.RunMetrics metrics) {
 
         public Completion {
             Objects.requireNonNull(sessionRecord, "Session record cannot be null");
             sessionToolHistory = List.copyOf(sessionToolHistory);
             toolHistory = List.copyOf(toolHistory);
+            interventions = List.copyOf(interventions);
             Objects.requireNonNull(metrics, "Run metrics cannot be null");
         }
     }

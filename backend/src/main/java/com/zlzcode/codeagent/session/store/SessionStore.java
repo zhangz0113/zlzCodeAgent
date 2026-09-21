@@ -3,6 +3,8 @@ package com.zlzcode.codeagent.session.store;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zlzcode.codeagent.session.exception.SessionException;
 import com.zlzcode.codeagent.session.model.Session;
+import com.zlzcode.codeagent.task.model.RunIntervention;
+import com.zlzcode.codeagent.task.model.TaskPlan;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -27,7 +29,8 @@ import java.util.regex.Pattern;
 @Component
 public final class SessionStore {
 
-    private static final int STATE_VERSION = 4;
+    private static final int STATE_VERSION = 5;
+    private static final int CHECKPOINT_STATE_VERSION = 4;
     private static final int REFERENCE_STATE_VERSION = 3;
     private static final int STRUCTURED_STATE_VERSION = 2;
     private static final int LEGACY_STATE_VERSION = 1;
@@ -37,6 +40,8 @@ public final class SessionStore {
     private static final int MAX_TOOL_HISTORY = 15;
     private static final int MAX_TOOL_NAME_CHARS = 64;
     private static final int MAX_TOOL_VALUE_CHARS = 20_000;
+    private static final int MAX_TASK_STEPS = 20;
+    private static final int MAX_INTERVENTIONS = 100;
     private static final Pattern ID_PATTERN = Pattern.compile("^[A-Za-z0-9_-]{1,128}$");
     private static final Pattern TOOL_NAME_PATTERN = Pattern.compile("^[A-Za-z0-9_-]+$");
 
@@ -153,13 +158,14 @@ public final class SessionStore {
 
     private Session validateAndMap(SessionFile file, String expectedSessionId) {
         /*
-         * 背景：v1 只有扁平 toolHistory，v2 引入结构化工具 round，v3 增加 argumentsRef，v4 增加历史检查点。
-         * 设计意图：新写入统一使用 v4，读取时在内存中把 v1-v3 投影为当前模型，不建设一次性迁移工具。
+         * 背景：v1 只有扁平 toolHistory，v2 引入结构化工具 round，v3 增加 argumentsRef，v4 增加历史检查点，v5 增加 Run 计划和介入记录。
+         * 设计意图：新写入统一使用 v5，读取时在内存中把 v1-v4 投影为当前模型，不建设一次性迁移工具。
          * 关键约束：v1 的扁平顺序和 v2 的完整参数必须原样保留；不能把缺失 argumentsRef 当成损坏，
          * 也不能把旧版本缺失检查点当成损坏，否则升级后既有 Session 将全部无法继续读取。
          */
         if (file == null
                 || (file.version() != STATE_VERSION
+                && file.version() != CHECKPOINT_STATE_VERSION
                 && file.version() != REFERENCE_STATE_VERSION
                 && file.version() != STRUCTURED_STATE_VERSION
                 && file.version() != LEGACY_STATE_VERSION)
@@ -168,7 +174,7 @@ public final class SessionStore {
         }
         Session session = new Session(
                 file.sessionId(), file.workspaceId(), file.createdAt(), file.updatedAt(),
-                file.version() == STATE_VERSION ? file.historyCheckpoint() : null,
+                file.version() >= CHECKPOINT_STATE_VERSION ? file.historyCheckpoint() : null,
                 file.turns() == null ? List.of() : file.turns().stream()
                         .map(turn -> turn.toModel(file.version()))
                         .toList());
@@ -264,8 +270,66 @@ public final class SessionStore {
                 validateToolCall(call, completed, invalidState);
             }
         }
-        if (assistant.content() == null && assistant.toolRounds().isEmpty()) {
+        validateTaskPlan(assistant.taskPlan(), invalidState);
+        validateInterventions(
+                assistant.interventions(), assistant.toolRounds().size(), invalidState);
+        if (assistant.content() == null
+                && assistant.toolRounds().isEmpty()
+                && assistant.taskPlan() == null
+                && assistant.interventions().isEmpty()) {
             throw invalidState.get();
+        }
+    }
+
+    private void validateTaskPlan(
+            TaskPlan plan,
+            Supplier<SessionException> invalidState) {
+        if (plan == null) {
+            return;
+        }
+        if (plan.revision() < 1 || plan.steps().isEmpty() || plan.steps().size() > MAX_TASK_STEPS) {
+            throw invalidState.get();
+        }
+        Set<String> contents = new HashSet<>();
+        int inProgress = 0;
+        for (TaskPlan.TaskStep step : plan.steps()) {
+            if (step == null
+                    || invalidContent(step.content())
+                    || !step.content().equals(step.content().trim())
+                    || !contents.add(step.content())
+                    || step.status() == null) {
+                throw invalidState.get();
+            }
+            if (step.status() == TaskPlan.TaskStepStatus.IN_PROGRESS) {
+                inProgress++;
+            }
+        }
+        if (inProgress > 1) {
+            throw invalidState.get();
+        }
+    }
+
+    private void validateInterventions(
+            List<RunIntervention> interventions,
+            int toolRounds,
+            Supplier<SessionException> invalidState) {
+        if (interventions.size() > MAX_INTERVENTIONS) {
+            throw invalidState.get();
+        }
+        Set<String> ids = new HashSet<>();
+        int previousRound = -1;
+        for (RunIntervention intervention : interventions) {
+            if (intervention == null
+                    || !validId(intervention.interventionId())
+                    || !ids.add(intervention.interventionId())
+                    || invalidContent(intervention.content())
+                    || intervention.acceptedAt() == null
+                    || intervention.appliedAfterToolRound() == null
+                    || intervention.appliedAfterToolRound() < previousRound
+                    || intervention.appliedAfterToolRound() > toolRounds) {
+                throw invalidState.get();
+            }
+            previousRound = intervention.appliedAfterToolRound();
         }
     }
 
@@ -378,16 +442,28 @@ public final class SessionStore {
     private record AssistantFile(
             String content,
             List<Session.ToolRound> toolRounds,
-            List<Session.ToolHistory> toolHistory) {
+            List<Session.ToolHistory> toolHistory,
+            TaskPlan taskPlan,
+            List<RunIntervention> interventions) {
 
         private static AssistantFile from(Session.AssistantMessage assistant) {
-            return new AssistantFile(assistant.content(), assistant.toolRounds(), null);
+            return new AssistantFile(
+                    assistant.content(),
+                    assistant.toolRounds(),
+                    null,
+                    assistant.taskPlan(),
+                    assistant.interventions());
         }
 
         private Session.AssistantMessage toModel(int version) {
             if (version >= STRUCTURED_STATE_VERSION) {
                 return new Session.AssistantMessage(
-                        content, toolRounds == null ? List.of() : toolRounds);
+                        content,
+                        toolRounds == null ? List.of() : toolRounds,
+                        version >= STATE_VERSION ? taskPlan : null,
+                        version >= STATE_VERSION && interventions != null
+                                ? interventions
+                                : List.of());
             }
             List<Session.ToolRound> legacyRounds = toolHistory == null
                     ? List.of()
@@ -401,7 +477,7 @@ public final class SessionStore {
                                     new Session.ToolResult(
                                             true, tool.result(), null, null)))))
                     .toList();
-            return new Session.AssistantMessage(content, legacyRounds);
+            return new Session.AssistantMessage(content, legacyRounds, null, List.of());
         }
     }
 }

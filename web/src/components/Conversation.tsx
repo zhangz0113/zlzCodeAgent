@@ -24,6 +24,7 @@ import {
 import type { ReasoningEffortOption } from '../model-capabilities'
 import { BrandMark } from './Brand'
 import { Composer } from './Composer'
+import { TaskPlanPanel } from './TaskPlanPanel'
 
 interface ConversationProps {
   session: Session | undefined
@@ -35,6 +36,8 @@ interface ConversationProps {
   reasoningEffort: string
   reasoningEfforts: readonly ReasoningEffortOption[]
   running: boolean
+  interventionReady: boolean
+  interventionSubmitting: boolean
   workspacePicking: boolean
   enterToSend: boolean
   view: 'conversation' | 'trajectory'
@@ -177,6 +180,9 @@ function AssistantMessage({
               <ToolCard key={tool.id} tool={tool} onConfirm={onConfirm} />
             ))}
           </div>
+        )}
+        {(message.taskPlan !== undefined || (message.interventions ?? []).length > 0) && (
+          <TaskPlanPanel plan={message.taskPlan} interventions={message.interventions} />
         )}
         {message.content && (
           <div className="messageContent">

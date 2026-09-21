@@ -16,6 +16,7 @@ import com.zlzcode.codeagent.memory.model.Memory;
 import com.zlzcode.codeagent.memory.service.MemoryConsolidationService;
 import com.zlzcode.codeagent.session.model.SessionRunSnapshot;
 import com.zlzcode.codeagent.session.service.SessionService;
+import com.zlzcode.codeagent.task.service.TaskProgressService;
 import com.zlzcode.codeagent.tool.model.MutationPlan;
 import com.zlzcode.codeagent.tool.model.ToolExecutionContext;
 import com.zlzcode.codeagent.tool.model.ToolOutcome;
@@ -59,6 +60,7 @@ final class AgentRunExecutor {
     private final AgentRunScheduler scheduler;
     private final AgentReActLoop reActLoop;
     private final RunFileObservationService observationService;
+    private final TaskProgressService taskProgressService;
 
     @Value("${codeagent.run.timeout:PT5M}")
     private Duration runTimeout;
@@ -77,7 +79,8 @@ final class AgentRunExecutor {
             RunStore runStore,
             AgentRunScheduler scheduler,
             AgentReActLoop reActLoop,
-            RunFileObservationService observationService) {
+            RunFileObservationService observationService,
+            TaskProgressService taskProgressService) {
         this.workspaceRegistry = workspaceRegistry;
         this.objectMapper = objectMapper;
         this.toolRegistry = toolRegistry;
@@ -90,6 +93,7 @@ final class AgentRunExecutor {
         this.scheduler = scheduler;
         this.reActLoop = reActLoop;
         this.observationService = observationService;
+        this.taskProgressService = taskProgressService;
     }
 
     /*
@@ -103,6 +107,7 @@ final class AgentRunExecutor {
             throw new IllegalStateException("Run is already active: " + execution.runId());
         }
         try {
+            taskProgressService.openRun(execution.sessionId(), execution.runId());
             CompletableFuture<Void> scheduled = scheduler.schedule(
                     execution.sessionId(),
                     () -> execute(execution, active).toFuture());
@@ -417,6 +422,7 @@ final class AgentRunExecutor {
          * 关键约束：不能保留到 Session 或后续 Run；否则旧读取可能错误授权新的文件修改。
          */
         observationService.clear(active.runId);
+        taskProgressService.closeRun(active.sessionId, active.runId);
         active.events.tryEmitComplete();
         activeRuns.remove(active.runId, active);
     }

@@ -9,6 +9,7 @@ import {
   type Session,
   type ThemePreference,
   type Workspace,
+  type RunIntervention,
 } from './domain'
 import { normalizeReasoningEffort, resolveModelCapabilities } from './model-capabilities'
 
@@ -45,6 +46,12 @@ export type AppAction =
   | { type: 'session/select'; sessionId: string }
   | { type: 'message/append'; sessionId: string; message: Message; title?: string }
   | { type: 'run/event'; sessionId: string; messageId: string; event: AgentEvent }
+  | {
+      type: 'run/intervention-queued'
+      sessionId: string
+      messageId: string
+      intervention: RunIntervention
+    }
   | {
       type: 'run/confirmation-state'
       sessionId: string
@@ -151,6 +158,20 @@ export function appReducer(state: AppState, action: AppAction): AppState {
               ? applyAgentEvent(message, action.event)
               : message,
           ),
+        })),
+      }
+    case 'run/intervention-queued':
+      return {
+        ...state,
+        sessions: updateSession(state.sessions, action.sessionId, session => ({
+          ...session,
+          updatedAt: Date.now(),
+          messages: session.messages.map(message => message.id === action.messageId
+            ? {
+                ...message,
+                interventions: [...(message.interventions ?? []), action.intervention],
+              }
+            : message),
         })),
       }
     case 'run/confirmation-state':

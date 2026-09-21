@@ -991,6 +991,122 @@ button:disabled {
   margin: 9px 0 14px;
 }
 
+.taskPlanPanel {
+  margin: 10px 0 14px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent-soft) 34%, transparent);
+}
+
+.taskPlanPanel summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 11px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.taskPlanPanel summary::-webkit-details-marker {
+  display: none;
+}
+
+.taskPlanPanel summary strong {
+  font-weight: 650;
+}
+
+.taskPlanPanel summary span {
+  margin-left: auto;
+  color: var(--text-caption);
+  font-size: 10px;
+}
+
+.taskPlanSteps {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--border);
+  list-style: none;
+}
+
+.taskPlanSteps li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 7px;
+  padding: 8px 11px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 17px;
+}
+
+.taskPlanSteps li + li {
+  border-top: 1px solid var(--border);
+}
+
+.taskPlanSteps li[data-status="COMPLETED"] {
+  color: var(--text-caption);
+  text-decoration: line-through;
+}
+
+.taskPlanSteps li[data-status="IN_PROGRESS"] {
+  color: var(--text-primary);
+  font-weight: 550;
+}
+
+.taskPlanStepIcon {
+  display: grid;
+  place-items: center;
+  height: 17px;
+  color: var(--text-caption);
+}
+
+.taskPlanSteps li[data-status="COMPLETED"] .taskPlanStepIcon {
+  color: var(--success);
+}
+
+.taskPlanSteps li[data-status="IN_PROGRESS"] .taskPlanStepIcon {
+  color: var(--accent);
+}
+
+.runInterventions {
+  display: grid;
+  gap: 7px;
+  padding: 9px 11px 11px;
+  border-top: 1px solid var(--border);
+}
+
+.runInterventions > strong {
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+.runIntervention {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 8px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.runIntervention small {
+  flex: none;
+  color: var(--warning);
+  font-size: 9px;
+}
+
+.runIntervention[data-state="applied"] small {
+  color: var(--success);
+}
+
 .toolCard {
   overflow: hidden;
   border: 1px solid var(--border);
