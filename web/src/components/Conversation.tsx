@@ -1,5 +1,6 @@
 import {
   Ban,
+  Brain,
   Check,
   ChevronRight,
   CircleAlert,
@@ -136,6 +137,12 @@ function AssistantMessage({
   message: Message
   onConfirm: ConversationProps['onConfirm']
 }) {
+  const memoryChangeLabels = {
+    ADDED: '已记住',
+    UPDATED: '已更新记忆',
+    DELETED: '已删除记忆',
+  } as const
+
   return (
     <article className="assistantMessage">
       <div className="assistantMarker"><BrandMark size={22} /></div>
@@ -175,6 +182,28 @@ function AssistantMessage({
           <div className="messageContent">
             <AssistantMarkdown content={message.content} />
           </div>
+        )}
+        {(message.memoryChanges ?? []).length > 0 && (
+          <details className="memoryChangePanel">
+            <summary>
+              <Brain size={14} />
+              <span>本轮长期记忆变更 {message.memoryChanges?.length}</span>
+              <ChevronRight className="processChevron" size={14} />
+            </summary>
+            <ul>
+              {message.memoryChanges?.map(change => (
+                <li key={`${change.changeType}-${change.id}`}>
+                  <span className={`memoryChangeType memoryChangeType-${change.changeType.toLowerCase()}`}>
+                    {memoryChangeLabels[change.changeType]}
+                  </span>
+                  <div>
+                    <code>{change.subjectKey}</code>
+                    <p>{change.content}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </details>
         )}
         {message.state === 'error' && (message.errorCode || message.errorRetryable !== undefined) && (
           <div className="messageMetrics">
