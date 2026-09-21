@@ -1,12 +1,13 @@
 package com.zlzcode.codeagent.agent.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.zlzcode.codeagent.memory.model.Memory;
 
 import java.util.List;
 
 public sealed interface AgentEvent permits AgentEvent.Status, AgentEvent.TextDelta,
         AgentEvent.ToolStarted, AgentEvent.ToolFinished, AgentEvent.Completed, AgentEvent.Error,
-        AgentEvent.RunStarted, AgentEvent.AssistantStep {
+        AgentEvent.RunStarted, AgentEvent.AssistantStep, AgentEvent.MemoryChanged {
 
     @JsonProperty("type")
     String type();
@@ -54,6 +55,37 @@ public sealed interface AgentEvent permits AgentEvent.Status, AgentEvent.TextDel
     }
 
     record ToolHistory(String name, String arguments, String result) {
+    }
+
+    record MemoryChange(
+            Memory.ChangeType changeType,
+            String id,
+            Memory.Scope scope,
+            Memory.Kind kind,
+            String subjectKey,
+            String content) {
+
+        public static MemoryChange from(Memory.Change change) {
+            return new MemoryChange(
+                    change.type(),
+                    change.entry().id(),
+                    change.entry().scope(),
+                    change.entry().kind(),
+                    change.entry().subjectKey(),
+                    change.entry().content());
+        }
+    }
+
+    record MemoryChanged(List<MemoryChange> changes) implements AgentEvent {
+
+        public MemoryChanged {
+            changes = changes == null ? List.of() : List.copyOf(changes);
+        }
+
+        @Override
+        public String type() {
+            return "memory_changed";
+        }
     }
 
     record RunMetrics(

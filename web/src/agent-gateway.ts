@@ -3,6 +3,7 @@ import {
   type AgentEvent,
   type ConversationToolHistory,
   type Message,
+  type MemoryEntry,
   type OpenAIConnectionInput,
   type OpenAIModel,
   type RunRequest,
@@ -21,6 +22,8 @@ export interface AgentGateway {
   pickWorkspace(): Promise<Workspace | null>
   createSession(workspaceId: string): Promise<Session>
   readSession(sessionId: string): Promise<Session>
+  listMemories(workspaceId: string): Promise<MemoryEntry[]>
+  deleteMemory(memoryId: string): Promise<void>
   run(request: RunRequest, signal: AbortSignal): AsyncIterable<AgentEvent>
   decideConfirmation(
     runId: string,
@@ -61,6 +64,47 @@ interface ApprovalResponse {
   relativePaths: unknown
   presentationSummary: unknown
   runStatus: unknown
+}
+
+function parseMemoryEntry(value: unknown): MemoryEntry {
+  const candidate = jsonRecord(value)
+  const id = requiredString(candidate?.id)
+  const subjectKey = requiredString(candidate?.subjectKey)
+  const content = requiredString(candidate?.content)
+  const sourceSessionId = requiredString(candidate?.sourceSessionId)
+  const sourceRunId = requiredString(candidate?.sourceRunId)
+  const createdAt = requiredString(candidate?.createdAt)
+  const updatedAt = requiredString(candidate?.updatedAt)
+  const scope = candidate?.scope
+  const kind = candidate?.kind
+  const workspaceId = candidate?.workspaceId
+  if (id === undefined
+    || (scope !== 'GLOBAL' && scope !== 'WORKSPACE')
+    || (kind !== 'PREFERENCE' && kind !== 'FACT' && kind !== 'DECISION' && kind !== 'STATUS')
+    || subjectKey === undefined
+    || content === undefined
+    || sourceSessionId === undefined
+    || sourceRunId === undefined
+    || createdAt === undefined
+    || updatedAt === undefined
+    || (workspaceId !== undefined && typeof workspaceId !== 'string')) {
+    throw new AgentGatewayError('读取长期记忆失败：Java 后端返回了无效记忆结构', {
+      code: 'MEMORY_RESPONSE_INVALID',
+      retryable: false,
+    })
+  }
+  return {
+    id,
+    scope,
+    kind,
+    subjectKey,
+    content,
+    sourceSessionId,
+    sourceRunId,
+    createdAt,
+    updatedAt,
+    ...(workspaceId === undefined ? {} : { workspaceId }),
+  }
 }
 
 type JsonRecord = Record<string, unknown>
@@ -376,6 +420,32 @@ export class HttpAgentGateway implements AgentGateway {
     )
     if (!response.ok) throw await apiError(response, '读取会话')
     return parseSession(await response.json())
+  }
+
+  async listMemories(workspaceId: string): Promise<MemoryEntry[]> {
+    const response = await apiFetch(
+      this.endpoint(`/api/memories?workspaceId=${encodeURIComponent(workspaceId)}`),
+      { method: 'GET', headers: { Accept: 'application/json' } },
+      '读取长期记忆',
+    )
+    if (!response.ok) throw await apiError(response, '读取长期记忆')
+    const payload = await response.json() as unknown
+    if (!Array.isArray(payload)) {
+      throw new AgentGatewayError('读取长期记忆失败：Java 后端返回了无效记忆列表', {
+        code: 'MEMORY_RESPONSE_INVALID',
+        retryable: false,
+      })
+    }
+    return payload.map(parseMemoryEntry)
+  }
+
+  async deleteMemory(memoryId: string): Promise<void> {
+    const response = await apiFetch(
+      this.endpoint(`/api/memories/${encodeURIComponent(memoryId)}`),
+      { method: 'DELETE', headers: { Accept: 'application/json' } },
+      '删除长期记忆',
+    )
+    if (!response.ok) throw await apiError(response, '删除长期记忆')
   }
 
   async *run(request: RunRequest, signal: AbortSignal): AsyncIterable<AgentEvent> {

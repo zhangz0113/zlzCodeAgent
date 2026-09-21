@@ -1,4 +1,9 @@
-import type { AgentEvent, ConversationToolHistory, RunMetrics } from './domain'
+import type {
+  AgentEvent,
+  ConversationToolHistory,
+  MemoryChange,
+  RunMetrics,
+} from './domain'
 
 export class AgentGatewayError extends Error {
   readonly code?: string
@@ -76,6 +81,21 @@ function isToolHistory(value: unknown): value is ConversationToolHistory[] {
     && value.every(isConversationToolHistory)
 }
 
+function isMemoryChange(value: unknown): value is MemoryChange {
+  if (!isPlainObject(value)) return false
+  return (value.changeType === 'ADDED'
+      || value.changeType === 'UPDATED'
+      || value.changeType === 'DELETED')
+    && isString(value.id)
+    && (value.scope === 'GLOBAL' || value.scope === 'WORKSPACE')
+    && (value.kind === 'PREFERENCE'
+      || value.kind === 'FACT'
+      || value.kind === 'DECISION'
+      || value.kind === 'STATUS')
+    && isString(value.subjectKey)
+    && isString(value.content)
+}
+
 export function isAgentEvent(value: unknown): value is AgentEvent {
   if (!isPlainObject(value) || !isString(value.type)) return false
 
@@ -106,6 +126,11 @@ export function isAgentEvent(value: unknown): value is AgentEvent {
       return isString(value.delta)
     case 'assistant_step':
       return isString(value.content) && value.content.length > 0
+    case 'memory_changed':
+      return Array.isArray(value.changes)
+        && value.changes.length > 0
+        && value.changes.length <= 8
+        && value.changes.every(isMemoryChange)
     case 'completed':
       return isRunMetrics(value.metrics) && isToolHistory(value.toolHistory)
     case 'error':

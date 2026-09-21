@@ -11,7 +11,7 @@ public class WebCorsConfig implements WebFluxConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
                 .allowedOrigins("http://127.0.0.1:5173", "http://localhost:5173")
-                .allowedMethods("GET", "POST", "OPTIONS")
+                .allowedMethods("GET", "POST", "DELETE", "OPTIONS")
                 .allowedHeaders("Content-Type", "Accept")
                 .allowCredentials(false);
     }

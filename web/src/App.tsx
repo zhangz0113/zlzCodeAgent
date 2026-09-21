@@ -1,5 +1,6 @@
 import {
   CircleAlert,
+  Brain,
   Eye,
   EyeOff,
   LoaderCircle,
@@ -8,6 +9,7 @@ import {
   RotateCcw,
   Server,
   Sun,
+  Trash2,
   X,
 } from 'lucide-react'
 import { useEffect, useReducer, useRef, useState } from 'react'
@@ -19,6 +21,7 @@ import {
   createId,
   titleFromPrompt,
   type Message,
+  type MemoryEntry,
   type OpenAIConnectionInput,
   type RunRequest,
   type Session,
@@ -54,6 +57,13 @@ interface ActiveRunOwner {
 }
 
 const idleModelFetchFeedback: ModelFetchFeedback = { state: 'idle', message: '' }
+
+const memoryKindLabels: Record<MemoryEntry['kind'], string> = {
+  PREFERENCE: '偏好',
+  FACT: '事实',
+  DECISION: '决定',
+  STATUS: '状态',
+}
 
 export function normalizeOpenAIBaseUrl(value: string): string {
   const trimmed = value.trim()
@@ -179,6 +189,10 @@ export default function App() {
   const [modelFetchFeedback, setModelFetchFeedback] = useState<ModelFetchFeedback>(
     idleModelFetchFeedback,
   )
+  const [memories, setMemories] = useState<MemoryEntry[]>([])
+  const [memoriesLoading, setMemoriesLoading] = useState(false)
+  const [memoryError, setMemoryError] = useState<string | null>(null)
+  const [deletingMemoryId, setDeletingMemoryId] = useState<string | null>(null)
   const workspacePickerRequest = useRef<Promise<Workspace | undefined> | null>(null)
   const sessionCreationRequest = useRef<Promise<Session> | null>(null)
   const hydratedSessions = useRef(new Set<string>())
@@ -242,6 +256,15 @@ export default function App() {
 
   useEffect(() => () => modelFetchController.current?.abort(), [])
   useEffect(() => () => activeRun.current?.controller.abort(), [])
+
+  useEffect(() => {
+    if (!settingsOpen || activeWorkspace === undefined) {
+      setMemories([])
+      setMemoryError(null)
+      return
+    }
+    void refreshMemories(activeWorkspace.id)
+  }, [settingsOpen, activeWorkspace?.id])
 
   const pickWorkspace = (): Promise<Workspace | undefined> => {
     if (activeRun.current !== null) return Promise.resolve(undefined)
@@ -507,6 +530,31 @@ export default function App() {
     setModelFetchFeedback({ state: 'success', message: `已添加模型 ${modelId}` })
   }
 
+  async function refreshMemories(workspaceId: string) {
+    setMemoriesLoading(true)
+    setMemoryError(null)
+    try {
+      setMemories(await gateway.listMemories(workspaceId))
+    } catch (error) {
+      setMemoryError(error instanceof Error ? error.message : '读取长期记忆失败')
+    } finally {
+      setMemoriesLoading(false)
+    }
+  }
+
+  const deleteMemory = async (memoryId: string) => {
+    setDeletingMemoryId(memoryId)
+    setMemoryError(null)
+    try {
+      await gateway.deleteMemory(memoryId)
+      setMemories(current => current.filter(memory => memory.id !== memoryId))
+    } catch (error) {
+      setMemoryError(error instanceof Error ? error.message : '删除长期记忆失败')
+    } finally {
+      setDeletingMemoryId(null)
+    }
+  }
+
   const resetLocalState = () => {
     activeRun.current?.controller.abort()
     modelFetchController.current?.abort()
@@ -592,6 +640,65 @@ export default function App() {
                   </div>
                 </div>
               </div>
+            </section>
+
+            <section className="settingsSection">
+              <div className="settingsSectionTitle">
+                <div>
+                  <h3>长期记忆</h3>
+                  <p>展示全局记忆和当前工作区记忆；删除后不会影响已有会话记录。</p>
+                </div>
+                <button
+                  className="memoryRefreshButton"
+                  disabled={activeWorkspace === undefined || memoriesLoading}
+                  onClick={() => activeWorkspace && void refreshMemories(activeWorkspace.id)}
+                  type="button"
+                >
+                  <RefreshCw className={memoriesLoading ? 'spin' : undefined} size={14} />
+                  刷新
+                </button>
+              </div>
+
+              {activeWorkspace === undefined ? (
+                <div className="memoryEmpty">选择工作区后可查看适用于该工作区的记忆。</div>
+              ) : memoryError !== null ? (
+                <div className="settingsFeedback settingsFeedback-error" role="alert">
+                  <CircleAlert size={14} />
+                  <span>{memoryError}</span>
+                </div>
+              ) : memoriesLoading && memories.length === 0 ? (
+                <div className="memoryEmpty"><LoaderCircle className="spin" size={15} /> 正在读取…</div>
+              ) : memories.length === 0 ? (
+                <div className="memoryEmpty">还没有长期记忆。成功完成任务后，系统会按需归并。</div>
+              ) : (
+                <ul className="memoryList">
+                  {memories.map(memory => (
+                    <li className="memoryItem" key={memory.id}>
+                      <div className="memoryItemIcon"><Brain size={15} /></div>
+                      <div className="memoryItemBody">
+                        <div className="memoryItemMeta">
+                          <span>{memory.scope === 'GLOBAL' ? '全局' : '当前工作区'}</span>
+                          <span>{memoryKindLabels[memory.kind]}</span>
+                          <code>{memory.subjectKey}</code>
+                        </div>
+                        <p>{memory.content}</p>
+                      </div>
+                      <button
+                        aria-label={`删除记忆 ${memory.subjectKey}`}
+                        className="memoryDeleteButton"
+                        disabled={deletingMemoryId === memory.id}
+                        onClick={() => void deleteMemory(memory.id)}
+                        title="删除这条记忆"
+                        type="button"
+                      >
+                        {deletingMemoryId === memory.id
+                          ? <LoaderCircle className="spin" size={14} />
+                          : <Trash2 size={14} />}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
 
             <section className="settingsSection">
