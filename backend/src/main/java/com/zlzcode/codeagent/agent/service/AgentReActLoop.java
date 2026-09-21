@@ -13,6 +13,10 @@ import com.zlzcode.codeagent.context.model.ContextReduction.ToolResultMaterial;
 import com.zlzcode.codeagent.context.service.ContextReductionModule;
 import com.zlzcode.codeagent.openai.client.OpenAiChatClient;
 import com.zlzcode.codeagent.openai.exception.OpenAiIntegrationException;
+import com.zlzcode.codeagent.task.model.RunIntervention;
+import com.zlzcode.codeagent.task.model.TaskPlan;
+import com.zlzcode.codeagent.task.service.TaskProgressService;
+import com.zlzcode.codeagent.task.tool.TaskPlanUpdateDefinition;
 import com.zlzcode.codeagent.tool.model.ApprovalRequired;
 import com.zlzcode.codeagent.tool.model.ToolCompleted;
 import com.zlzcode.codeagent.tool.model.ToolExecutionContext;
@@ -39,16 +43,19 @@ final class AgentReActLoop {
     private final ToolRegistry toolRegistry;
     private final LlmTurnStreamProcessor turnStreamProcessor;
     private final ContextReductionModule contextReduction;
+    private final TaskProgressService taskProgressService;
 
     AgentReActLoop(
             OpenAiChatClient openAiChatClient,
             ToolRegistry toolRegistry,
             LlmTurnStreamProcessor turnStreamProcessor,
-            ContextReductionModule contextReduction) {
+            ContextReductionModule contextReduction,
+            TaskProgressService taskProgressService) {
         this.openAiChatClient = openAiChatClient;
         this.toolRegistry = toolRegistry;
         this.turnStreamProcessor = turnStreamProcessor;
         this.contextReduction = contextReduction;
+        this.taskProgressService = taskProgressService;
     }
 
     Flux<AgentEvent> run(
@@ -70,7 +77,8 @@ final class AgentReActLoop {
             RunLoopState state,
             ToolApprovalCoordinator approvalCoordinator) {
         return switch (state.phase()) {
-            case INITIAL -> Mono.just(state.transitionTo(RunPhase.REQUEST_MODEL));
+            case INITIAL -> Mono.just(state.transitionTo(RunPhase.PREPARE_MODEL));
+            case PREPARE_MODEL -> Mono.just(prepareModelRequest(state));
             case REQUEST_MODEL -> collectModelTurn(state.context())
                     .map(result -> state.withModelResult(RunPhase.MODEL_RESULT_READY, result));
             case MODEL_RESULT_READY -> handleModelTurn(state);
@@ -78,6 +86,25 @@ final class AgentReActLoop {
             case TOOL_RESULT_READY -> Mono.just(advanceToolBatch(state));
             case ANSWER_READY -> Mono.empty();
         };
+    }
+
+    /*
+     * 背景：用户补充要求可能在模型或工具处理中到达，但 OpenAI 工具协议不允许在悬空 tool_calls 中插入用户消息。
+     * 设计意图：所有模型请求统一先经过该边界，按提交顺序排空要求并由 Context 同时记录实时消息和可重放语义。
+     * 关键约束：该 phase 只能位于初次请求前或完整工具批次后；移到单个工具结果之间会破坏同批调用配对和审批提交顺序。
+     */
+    private RunLoopState prepareModelRequest(RunLoopState state) {
+        ReActContext context = state.context();
+        List<RunIntervention> interventions = taskProgressService.drainInterventions(
+                context.execution().sessionId(),
+                context.execution().runId(),
+                context.completedToolRounds());
+        context.appendInterventions(interventions);
+        List<AgentEvent> events = interventions.stream()
+                .map(intervention -> (AgentEvent) new AgentEvent.RunInterventionApplied(
+                        intervention.interventionId()))
+                .toList();
+        return state.withEvents(RunPhase.REQUEST_MODEL, events);
     }
 
     private Mono<LlmTurnResult> collectModelTurn(ReActContext context) {
@@ -180,8 +207,9 @@ final class AgentReActLoop {
                     List.of(new AgentEvent.ToolStarted(
                             nextCall.id(), toolRegistry.displayName(nextCall.name()), null)));
         }
+        state.context().completeToolRound();
         return state.withEvents(
-                RunPhase.REQUEST_MODEL,
+                RunPhase.PREPARE_MODEL,
                 List.of(new AgentEvent.Status("正在整理结果")));
     }
 
@@ -223,12 +251,21 @@ final class AgentReActLoop {
                             outcome.presentation());
                     state.context().recordToolExecution(
                             call, visibleOutcome, prepared.resultRef());
+                    List<AgentEvent> events = new ArrayList<>();
+                    events.add(new AgentEvent.ToolFinished(
+                            call.id(),
+                            visibleOutcome.ok() ? "completed" : "failed",
+                            visibleOutcome.presentation()));
+                    if (visibleOutcome.ok()
+                            && TaskPlanUpdateDefinition.NAME.equals(call.name())) {
+                        TaskPlan plan = taskProgressService.currentPlan(
+                                executionContext.sessionId(), executionContext.runId());
+                        state.context().recordTaskPlan(plan);
+                        events.add(new AgentEvent.TaskPlanUpdated(plan));
+                    }
                     return state.withToolOutcomeEvents(
                             RunPhase.TOOL_RESULT_READY,
-                            List.of(new AgentEvent.ToolFinished(
-                                    call.id(),
-                                    visibleOutcome.ok() ? "completed" : "failed",
-                                    visibleOutcome.presentation())));
+                            events);
                 });
     }
 
@@ -248,6 +285,7 @@ final class AgentReActLoop {
 
     private enum RunPhase {
         INITIAL,
+        PREPARE_MODEL,
         REQUEST_MODEL,
         MODEL_RESULT_READY,
         TOOL_READY,

@@ -2,12 +2,14 @@ package com.zlzcode.codeagent.agent.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.zlzcode.codeagent.memory.model.Memory;
+import com.zlzcode.codeagent.task.model.TaskPlan;
 
 import java.util.List;
 
 public sealed interface AgentEvent permits AgentEvent.Status, AgentEvent.TextDelta,
         AgentEvent.ToolStarted, AgentEvent.ToolFinished, AgentEvent.Completed, AgentEvent.Error,
-        AgentEvent.RunStarted, AgentEvent.AssistantStep, AgentEvent.MemoryChanged {
+        AgentEvent.RunStarted, AgentEvent.AssistantStep, AgentEvent.MemoryChanged,
+        AgentEvent.TaskPlanUpdated, AgentEvent.RunInterventionApplied {
 
     @JsonProperty("type")
     String type();
@@ -85,6 +87,20 @@ public sealed interface AgentEvent permits AgentEvent.Status, AgentEvent.TextDel
         @Override
         public String type() {
             return "memory_changed";
+        }
+    }
+
+    record TaskPlanUpdated(TaskPlan plan) implements AgentEvent {
+        @Override
+        public String type() {
+            return "task_plan_updated";
+        }
+    }
+
+    record RunInterventionApplied(String interventionId) implements AgentEvent {
+        @Override
+        public String type() {
+            return "run_intervention_applied";
         }
     }
 

@@ -1,5 +1,8 @@
 package com.zlzcode.codeagent.session.model;
 
+import com.zlzcode.codeagent.task.model.RunIntervention;
+import com.zlzcode.codeagent.task.model.TaskPlan;
+
 import java.time.Instant;
 import java.util.List;
 
@@ -36,10 +39,19 @@ public record Session(
     public record UserMessage(String content) {
     }
 
-    public record AssistantMessage(String content, List<ToolRound> toolRounds) {
+    public record AssistantMessage(
+            String content,
+            List<ToolRound> toolRounds,
+            TaskPlan taskPlan,
+            List<RunIntervention> interventions) {
+
+        public AssistantMessage(String content, List<ToolRound> toolRounds) {
+            this(content, toolRounds, null, List.of());
+        }
 
         public AssistantMessage {
             toolRounds = toolRounds == null ? List.of() : List.copyOf(toolRounds);
+            interventions = interventions == null ? List.of() : List.copyOf(interventions);
         }
 
         public List<ToolHistory> toolHistory() {
