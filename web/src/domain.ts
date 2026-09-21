@@ -52,6 +52,32 @@ export interface ConversationToolHistory {
   result: string
 }
 
+export type MemoryScope = 'GLOBAL' | 'WORKSPACE'
+export type MemoryKind = 'PREFERENCE' | 'FACT' | 'DECISION' | 'STATUS'
+export type MemoryChangeType = 'ADDED' | 'UPDATED' | 'DELETED'
+
+export interface MemoryEntry {
+  id: string
+  scope: MemoryScope
+  workspaceId?: string
+  kind: MemoryKind
+  subjectKey: string
+  content: string
+  sourceSessionId: string
+  sourceRunId: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface MemoryChange {
+  changeType: MemoryChangeType
+  id: string
+  scope: MemoryScope
+  kind: MemoryKind
+  subjectKey: string
+  content: string
+}
+
 export interface ToolStep {
   id: string
   label: string
@@ -97,6 +123,7 @@ export interface Message {
   processNotes?: string[]
   tools?: ToolStep[]
   toolHistory?: ConversationToolHistory[]
+  memoryChanges?: MemoryChange[]
   metrics?: RunMetrics
 }
 
@@ -133,6 +160,7 @@ export type AgentEvent =
     }
   | { type: 'text_delta'; delta: string }
   | { type: 'assistant_step'; content: string }
+  | { type: 'memory_changed'; changes: MemoryChange[] }
   | {
       type: 'completed'
       metrics: RunMetrics
@@ -274,6 +302,11 @@ export function applyAgentEvent(message: Message, event: AgentEvent): Message {
       }
     case 'text_delta':
       return { ...message, content: message.content + event.delta }
+    case 'memory_changed':
+      return {
+        ...message,
+        memoryChanges: [...(message.memoryChanges ?? []), ...event.changes],
+      }
     case 'completed':
       return {
         ...message,

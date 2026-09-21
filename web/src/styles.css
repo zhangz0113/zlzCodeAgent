@@ -896,6 +896,87 @@ button:disabled {
   font-size: 13px;
 }
 
+.memoryChangePanel {
+  margin-top: 14px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent-soft) 42%, transparent);
+}
+
+.memoryChangePanel summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 11px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.memoryChangePanel summary::-webkit-details-marker {
+  display: none;
+}
+
+.memoryChangePanel[open] .processChevron {
+  transform: rotate(90deg);
+}
+
+.memoryChangePanel ul {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--border);
+  list-style: none;
+}
+
+.memoryChangePanel li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 9px;
+  padding: 9px 11px;
+}
+
+.memoryChangePanel li + li {
+  border-top: 1px solid var(--border);
+}
+
+.memoryChangePanel li > div {
+  min-width: 0;
+}
+
+.memoryChangePanel code {
+  color: var(--text-tertiary);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+}
+
+.memoryChangePanel p {
+  margin: 3px 0 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 17px;
+}
+
+.memoryChangeType {
+  align-self: start;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.memoryChangeType-deleted {
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  color: var(--danger);
+}
+
 .processNote > :first-child {
   margin-top: 0;
 }
@@ -1525,6 +1606,128 @@ button:disabled {
 
 .settingsSectionTitle h3 {
   margin: 0;
+}
+
+.memoryRefreshButton {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.memoryRefreshButton:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.memoryEmpty {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 10px;
+  color: var(--text-caption);
+  font-size: 10px;
+  text-align: center;
+}
+
+.memoryList {
+  display: grid;
+  gap: 7px;
+  max-height: 280px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.memoryItem {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 30px;
+  align-items: start;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-muted) 52%, transparent);
+}
+
+.memoryItemIcon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.memoryItemBody {
+  min-width: 0;
+}
+
+.memoryItemMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-caption);
+  font-size: 9px;
+}
+
+.memoryItemMeta span {
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--surface-hover);
+}
+
+.memoryItemMeta code {
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memoryItemBody p {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 16px;
+}
+
+.memoryDeleteButton {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-caption);
+  cursor: pointer;
+}
+
+.memoryDeleteButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 9%, transparent);
+  color: var(--danger);
+}
+
+.memoryDeleteButton:disabled {
+  cursor: default;
+  opacity: 0.5;
 }
 
 .settingsStatus {

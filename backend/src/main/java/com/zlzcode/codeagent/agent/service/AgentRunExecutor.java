@@ -12,6 +12,8 @@ import com.zlzcode.codeagent.agent.model.RunRecord;
 import com.zlzcode.codeagent.agent.model.RunStatus;
 import com.zlzcode.codeagent.agent.store.RunStore;
 import com.zlzcode.codeagent.context.service.HistoryCompactionService;
+import com.zlzcode.codeagent.memory.model.Memory;
+import com.zlzcode.codeagent.memory.service.MemoryConsolidationService;
 import com.zlzcode.codeagent.session.model.SessionRunSnapshot;
 import com.zlzcode.codeagent.session.service.SessionService;
 import com.zlzcode.codeagent.tool.model.MutationPlan;
@@ -51,6 +53,7 @@ final class AgentRunExecutor {
     private final ApprovalService approvalService;
     private final AgentRunExceptionMapper exceptionMapper;
     private final HistoryCompactionService historyCompactionService;
+    private final MemoryConsolidationService memoryConsolidationService;
     private final SessionService sessionService;
     private final RunStore runStore;
     private final AgentRunScheduler scheduler;
@@ -69,6 +72,7 @@ final class AgentRunExecutor {
             ApprovalService approvalService,
             AgentRunExceptionMapper exceptionMapper,
             HistoryCompactionService historyCompactionService,
+            MemoryConsolidationService memoryConsolidationService,
             SessionService sessionService,
             RunStore runStore,
             AgentRunScheduler scheduler,
@@ -80,6 +84,7 @@ final class AgentRunExecutor {
         this.approvalService = approvalService;
         this.exceptionMapper = exceptionMapper;
         this.historyCompactionService = historyCompactionService;
+        this.memoryConsolidationService = memoryConsolidationService;
         this.sessionService = sessionService;
         this.runStore = runStore;
         this.scheduler = scheduler;
@@ -276,6 +281,15 @@ final class AgentRunExecutor {
         return Mono.fromRunnable(() -> sessionService.completeRun(
                         sessionRun,
                         completion.sessionRecord()))
+                .then(memoryConsolidationService.consolidate(
+                                execution, sessionRun, completion.sessionRecord())
+                        .doOnNext(changes -> emitMemoryChanges(active, changes))
+                        .onErrorResume(error -> {
+                            LOGGER.warn(
+                                    "Long-term memory consolidation skipped: runId={}, sessionId={}, reason={}",
+                                    execution.runId(), execution.sessionId(), error.toString());
+                            return Mono.empty();
+                        }))
                 .doOnSuccess(ignored -> runStore.succeed(
                         execution.runId(),
                         completion.finalAnswer(),
@@ -286,6 +300,14 @@ final class AgentRunExecutor {
                 .doOnSuccess(ignored -> LOGGER.info(
                         "Agent Run succeeded: runId={}, sessionId={}",
                         execution.runId(), execution.sessionId()));
+    }
+
+    private void emitMemoryChanges(ActiveRun active, List<Memory.Change> changes) {
+        if (changes.isEmpty()) {
+            return;
+        }
+        active.emit(new AgentEvent.MemoryChanged(
+                changes.stream().map(AgentEvent.MemoryChange::from).toList()));
     }
 
     Flux<AgentEvent> events(String sessionId, String runId) {

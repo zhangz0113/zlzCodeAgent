@@ -100,6 +100,7 @@ public final class RunContextPlan {
         SYSTEM_POLICY,
         PROJECT_INSTRUCTION,
         WORKSPACE_ENVIRONMENT,
+        LONG_TERM_MEMORY,
         SESSION_CHECKPOINT,
         SESSION_HISTORY,
         CURRENT_USER,
