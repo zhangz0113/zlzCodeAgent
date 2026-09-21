@@ -3,6 +3,7 @@ package com.zlzcode.codeagent.memory.store;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zlzcode.codeagent.memory.config.MemoryProperties;
 import com.zlzcode.codeagent.memory.model.Memory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -30,6 +31,7 @@ public final class FileMemoryStore {
     private final Path stateFile;
     private final Clock clock;
 
+    @Autowired
     public FileMemoryStore(ObjectMapper objectMapper, MemoryProperties properties) {
         this(objectMapper, properties, Path.of(properties.stateFile()), Clock.systemUTC());
     }
