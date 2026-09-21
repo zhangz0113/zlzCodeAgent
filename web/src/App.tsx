@@ -193,6 +193,7 @@ export default function App() {
   const [memoriesLoading, setMemoriesLoading] = useState(false)
   const [memoryError, setMemoryError] = useState<string | null>(null)
   const [deletingMemoryId, setDeletingMemoryId] = useState<string | null>(null)
+  const [interventionSubmitting, setInterventionSubmitting] = useState(false)
   const workspacePickerRequest = useRef<Promise<Workspace | undefined> | null>(null)
   const sessionCreationRequest = useRef<Promise<Session> | null>(null)
   const hydratedSessions = useRef(new Set<string>())
@@ -312,10 +313,39 @@ export default function App() {
 
   const submit = async () => {
     const prompt = draft.trim()
+    const currentRun = activeRun.current
+    if (currentRun !== null) {
+      /*
+       * 背景：运行中的输入属于同一 Run 的补充要求，不是新的对话轮次。
+       * 设计意图：复用主输入框并改走 intervention 接口，避免引入第二套编辑状态。
+       * 关键约束：必须等后端返回 runId 后才能提交，且不能追加 user message 或启动新 Run，否则会破坏同一 Run 的事件归属。
+       */
+      if (!prompt || currentRun.runId === null || interventionSubmitting) return
+      setInterventionSubmitting(true)
+      setWorkspaceError(null)
+      try {
+        const intervention = await gateway.submitIntervention(
+          currentRun.runId,
+          currentRun.sessionId,
+          prompt,
+        )
+        dispatch({
+          type: 'run/intervention-queued',
+          sessionId: currentRun.sessionId,
+          messageId: currentRun.messageId,
+          intervention,
+        })
+        setDraft('')
+      } catch (error) {
+        setWorkspaceError(error instanceof Error ? error.message : '无法提交补充要求')
+      } finally {
+        setInterventionSubmitting(false)
+      }
+      return
+    }
     if (
       !prompt
       || activeWorkspace === undefined
-      || activeRun.current !== null
       || workspacePicking
       || workspacePickerRequest.current !== null
     ) return
@@ -590,6 +620,8 @@ export default function App() {
         configured={openAIConfigured}
         draft={draft}
         enterToSend={state.enterToSend}
+        interventionReady={activeRunOwner !== null && activeRunOwner.runId !== null}
+        interventionSubmitting={interventionSubmitting}
         model={state.openai.model}
         models={state.openai.models}
         onCancel={cancelRun}

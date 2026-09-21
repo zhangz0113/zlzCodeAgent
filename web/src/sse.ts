@@ -4,6 +4,7 @@ import type {
   MemoryChange,
   RunMetrics,
 } from './domain'
+import { parseTaskPlan } from './domain'
 
 export class AgentGatewayError extends Error {
   readonly code?: string
@@ -131,6 +132,10 @@ export function isAgentEvent(value: unknown): value is AgentEvent {
         && value.changes.length > 0
         && value.changes.length <= 8
         && value.changes.every(isMemoryChange)
+    case 'task_plan_updated':
+      return parseTaskPlan(value.plan) !== undefined
+    case 'run_intervention_applied':
+      return isString(value.interventionId)
     case 'completed':
       return isRunMetrics(value.metrics) && isToolHistory(value.toolHistory)
     case 'error':

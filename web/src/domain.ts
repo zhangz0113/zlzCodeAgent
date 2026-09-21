@@ -1,6 +1,45 @@
 export type ThemePreference = 'light' | 'dark' | 'system'
 
 export const MAX_PROMPT_LENGTH = 20_000
+export const MAX_INTERVENTION_LENGTH = 4_000
+
+export type TaskStepStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED'
+
+export interface TaskStep {
+  content: string
+  status: TaskStepStatus
+}
+
+export interface TaskPlan {
+  revision: number
+  steps: TaskStep[]
+}
+
+export interface RunIntervention {
+  interventionId: string
+  content: string
+  acceptedAt: number
+  appliedAfterToolRound?: number
+  state: 'queued' | 'applied'
+}
+
+export function parseTaskPlan(value: unknown): TaskPlan | undefined {
+  if (typeof value !== 'object' || value === null) return undefined
+  const candidate = value as { revision?: unknown; steps?: unknown }
+  if (!Number.isSafeInteger(candidate.revision) || (candidate.revision as number) < 1
+    || !Array.isArray(candidate.steps) || candidate.steps.length === 0) return undefined
+  const steps: TaskStep[] = []
+  for (const item of candidate.steps) {
+    if (typeof item !== 'object' || item === null) return undefined
+    const step = item as { content?: unknown; status?: unknown }
+    if (typeof step.content !== 'string' || !step.content.trim()
+      || (step.status !== 'PENDING'
+        && step.status !== 'IN_PROGRESS'
+        && step.status !== 'COMPLETED')) return undefined
+    steps.push({ content: step.content, status: step.status })
+  }
+  return { revision: candidate.revision as number, steps }
+}
 
 export interface OpenAIModel {
   id: string
@@ -124,6 +163,8 @@ export interface Message {
   tools?: ToolStep[]
   toolHistory?: ConversationToolHistory[]
   memoryChanges?: MemoryChange[]
+  taskPlan?: TaskPlan
+  interventions?: RunIntervention[]
   metrics?: RunMetrics
 }
 
@@ -161,6 +202,8 @@ export type AgentEvent =
   | { type: 'text_delta'; delta: string }
   | { type: 'assistant_step'; content: string }
   | { type: 'memory_changed'; changes: MemoryChange[] }
+  | { type: 'task_plan_updated'; plan: TaskPlan }
+  | { type: 'run_intervention_applied'; interventionId: string }
   | {
       type: 'completed'
       metrics: RunMetrics
@@ -306,6 +349,22 @@ export function applyAgentEvent(message: Message, event: AgentEvent): Message {
       return {
         ...message,
         memoryChanges: [...(message.memoryChanges ?? []), ...event.changes],
+      }
+    case 'task_plan_updated':
+      return { ...message, taskPlan: event.plan }
+    case 'run_intervention_applied':
+      /*
+       * 背景：后端只在安全边界真正消费补充要求后发送该事件。
+       * 设计意图：原地更新已排队条目，让 UI 区分“已接收”和“已进入下一次模型请求”。
+       * 关键约束：只能按 interventionId 收口，不能按文本或数组位置匹配，否则重复内容会更新错条目。
+       */
+      return {
+        ...message,
+        interventions: message.interventions?.map(intervention =>
+          intervention.interventionId === event.interventionId
+            ? { ...intervention, state: 'applied' }
+            : intervention,
+        ),
       }
     case 'completed':
       return {
