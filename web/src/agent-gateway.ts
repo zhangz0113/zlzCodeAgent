@@ -1,13 +1,16 @@
 import {
   normalizeOpenAIModels,
+  parseTaskPlan,
   type AgentEvent,
   type ConversationToolHistory,
   type Message,
   type MemoryEntry,
   type OpenAIConnectionInput,
   type OpenAIModel,
+  type RunIntervention,
   type RunRequest,
   type Session,
+  type TaskPlan,
   type ToolStep,
   type Workspace,
   titleFromPrompt,
@@ -25,6 +28,7 @@ export interface AgentGateway {
   listMemories(workspaceId: string): Promise<MemoryEntry[]>
   deleteMemory(memoryId: string): Promise<void>
   run(request: RunRequest, signal: AbortSignal): AsyncIterable<AgentEvent>
+  submitIntervention(runId: string, sessionId: string, content: string): Promise<RunIntervention>
   decideConfirmation(
     runId: string,
     sessionId: string,
@@ -64,6 +68,14 @@ interface ApprovalResponse {
   relativePaths: unknown
   presentationSummary: unknown
   runStatus: unknown
+}
+
+interface InterventionResponse {
+  interventionId: unknown
+  runId: unknown
+  sessionId: unknown
+  status: unknown
+  acceptedAt: unknown
 }
 
 function parseMemoryEntry(value: unknown): MemoryEntry {
@@ -205,6 +217,41 @@ function parseToolRounds(
   return { processNotes, tools }
 }
 
+function parseOptionalTaskPlan(value: unknown): TaskPlan | undefined {
+  if (value === null || value === undefined) return undefined
+  const plan = parseTaskPlan(value)
+  if (plan === undefined) throw sessionResponseError()
+  return plan
+}
+
+function parseRunInterventions(value: unknown): RunIntervention[] {
+  if (!Array.isArray(value)) throw sessionResponseError()
+  return value.map(item => {
+    const candidate = jsonRecord(item)
+    const interventionId = requiredString(candidate?.interventionId)
+    const content = requiredString(candidate?.content)
+    const acceptedAt = timestamp(candidate?.acceptedAt)
+    const appliedAfterToolRound = candidate?.appliedAfterToolRound
+    if (interventionId === undefined
+      || content === undefined
+      || acceptedAt === undefined
+      || (appliedAfterToolRound !== null
+        && appliedAfterToolRound !== undefined
+        && (!Number.isSafeInteger(appliedAfterToolRound) || (appliedAfterToolRound as number) < 0))) {
+      throw sessionResponseError()
+    }
+    return {
+      interventionId,
+      content,
+      acceptedAt,
+      ...(typeof appliedAfterToolRound === 'number' ? { appliedAfterToolRound } : {}),
+      state: appliedAfterToolRound === null || appliedAfterToolRound === undefined
+        ? 'queued' as const
+        : 'applied' as const,
+    }
+  })
+}
+
 function parseSession(value: unknown): Session {
   const candidate = jsonRecord(value)
   const id = requiredString(candidate?.sessionId)
@@ -244,6 +291,10 @@ function parseSession(value: unknown): Session {
     const roundProjection = assistant === undefined || assistant.toolRounds === undefined
       ? { processNotes: [], tools: [] }
       : parseToolRounds(assistant.toolRounds, runId)
+    const taskPlan = parseOptionalTaskPlan(assistant?.taskPlan)
+    const interventions = assistant === undefined
+      ? []
+      : parseRunInterventions(assistant.interventions)
     if (state === 'incomplete') {
       return [
         userMessage,
@@ -258,6 +309,8 @@ function parseSession(value: unknown): Session {
             ? { processNotes: roundProjection.processNotes }
             : {}),
           ...(roundProjection.tools.length > 0 ? { tools: roundProjection.tools } : {}),
+          ...(taskPlan === undefined ? {} : { taskPlan }),
+          ...(interventions.length > 0 ? { interventions } : {}),
         },
       ]
     }
@@ -279,6 +332,8 @@ function parseSession(value: unknown): Session {
           : {}),
         ...(roundProjection.tools.length > 0 ? { tools: roundProjection.tools } : {}),
         ...(toolHistory.length > 0 ? { toolHistory } : {}),
+        ...(taskPlan === undefined ? {} : { taskPlan }),
+        ...(interventions.length > 0 ? { interventions } : {}),
       },
     ]
   })
@@ -619,6 +674,41 @@ export class HttpAgentGateway implements AgentGateway {
       }
       throw streamError
     }
+  }
+
+  async submitIntervention(
+    runId: string,
+    sessionId: string,
+    content: string,
+  ): Promise<RunIntervention> {
+    const response = await apiFetch(
+      this.endpoint(`/api/agent/runs/${encodeURIComponent(runId)}/interventions`),
+      {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ sessionId, content }),
+      },
+      '提交运行中补充要求',
+    )
+    if (!response.ok) throw await apiError(response, '提交运行中补充要求')
+
+    const payload = await response.json() as InterventionResponse
+    const interventionId = requiredString(payload.interventionId)
+    const acceptedAt = timestamp(payload.acceptedAt)
+    if (interventionId === undefined
+      || payload.runId !== runId
+      || payload.sessionId !== sessionId
+      || payload.status !== 'QUEUED'
+      || acceptedAt === undefined) {
+      throw new AgentGatewayError('提交运行中补充要求失败：Java 后端返回了无效结构', {
+        code: 'INTERVENTION_RESPONSE_INVALID',
+        retryable: false,
+      })
+    }
+    return { interventionId, content, acceptedAt, state: 'queued' }
   }
 
   async decideConfirmation(
