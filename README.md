@@ -146,8 +146,20 @@ variable; it is not included in configuration snapshots or worker command lines.
 The hmall verifier also needs `EVAL_JAVA_HOME` and `EVAL_MAVEN_WRAPPER` as above.
 
 ```powershell
-java -jar $agentJar evaluation run --pack $casePack --suite suites/core-v2.json --config backend/target/evaluation-run.json --output backend/target/evaluation/batch-example --repeat 2
+$verifierEnvironment = @{
+  EVAL_JAVA_HOME = $env:EVAL_JAVA_HOME
+  EVAL_MAVEN_WRAPPER = $env:EVAL_MAVEN_WRAPPER
+  PSModulePath = (& powershell.exe -NoProfile -NonInteractive -Command '[Environment]::GetEnvironmentVariable("PSModulePath")').Trim()
+}
+$verifierEnvironment | ConvertTo-Json | Set-Content backend/target/evaluation-env.json -Encoding utf8
+java -jar $agentJar evaluation run --pack $casePack --suite suites/core-v2.json --config backend/target/evaluation-run.json --output backend/target/evaluation/batch-example --repeat 2 --env backend/target/evaluation-env.json
 ```
+
+The hmall verifier uses Windows PowerShell. Passing its module path explicitly
+also supports launching the Java runner from PowerShell 7, whose inherited module
+path can otherwise prevent the verifier from loading commands such as `Get-FileHash`.
+This environment file contains verifier settings only; keep the model key in its
+separate process environment variable.
 
 The v2 case declares a single repair step and approval rules for business Java
 files, excluding `hm-service`. The v1 case and qualification command remain
