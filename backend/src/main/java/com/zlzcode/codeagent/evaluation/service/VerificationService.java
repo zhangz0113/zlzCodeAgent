@@ -83,7 +83,7 @@ public final class VerificationService {
     }
 
     private static void validateResult(VerificationResult result, Path output) throws IOException {
-        if (result.status() == null) throw new IOException("Missing verification status");
+        if (result == null || result.status() == null) throw new IOException("Missing verification status");
         if (result.status() == Status.PASS && (result.checks().isEmpty()
                 || result.checks().stream().anyMatch(check -> !check.passed()))) {
             throw new IOException("PASS requires successful checks");
