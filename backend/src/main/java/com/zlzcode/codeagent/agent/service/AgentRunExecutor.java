@@ -350,14 +350,12 @@ final class AgentRunExecutor {
 
     /*
      * 背景：SSE 已经开始输出后，HTTP 异常处理器无法修改响应，只能发送安全的终态错误事件。
-     * 设计意图：复用统一异常映射，同时先持久化 FAILED 再结束旁路，让断线后的查询仍能得到结论。
-     * 关键约束：错误消息不得泄露堆栈、密钥或本机路径；失败收口后不能再发送 Completed。
+     * 设计意图：同步取得统一异常映射，先持久化 FAILED 再结束旁路，让断线后的查询仍能得到结论。
+     * 关键约束：不能用 block 在非阻塞回调线程取值，否则原始错误和不完整会话无法正常保存；
+     * 错误消息不得泄露堆栈、密钥或本机路径，失败收口后不能再发送 Completed。
      */
     private void fail(ActiveRun active, Throwable error) {
-        AgentEvent.Error event = exceptionMapper.mapException(error)
-                .onErrorReturn(GENERIC_FAILURE)
-                .block(Duration.ofSeconds(1));
-        if (event == null) event = GENERIC_FAILURE;
+        AgentEvent.Error event = exceptionMapper.mapKnownException(error).orElse(GENERIC_FAILURE);
         active.rememberFailure(event);
         LOGGER.error(
                 "Agent Run failed: runId={}, sessionId={}, code={}",
