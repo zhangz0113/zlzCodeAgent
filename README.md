@@ -113,3 +113,90 @@ Optional `prepare --identity FILE` records requested experiment metadata using
 `budgets`. Unconfigured metadata remains null; it does not claim a model was run.
 Optional `verify --env FILE` reads a local JSON map of environment overrides.
 Keep credentials and machine-specific environment files outside case packages.
+
+## Evaluation: real Agent runs and review
+
+`evaluation run` executes a suite serially. Each attempt launches the selected
+CodeAgent JAR in a separate Java 21 process, with its own workspace, sessions,
+memory, approvals, run records, and logs. The worker uses the real application
+services without listening on an HTTP port. The parent waits for worker exit,
+archives all changed/new/deleted files, and then invokes independent verification.
+
+Build the backend first. Create a local `backend/target/evaluation-run.json`
+using this shape, replacing the model connection and declared build revision:
+
+```json
+{
+  "agentJar": "codeagent-backend-0.1.0-SNAPSHOT.jar",
+  "agentRevision": "COMMIT_USED_TO_BUILD_THE_JAR",
+  "provider": "your-provider",
+  "model": "your-model",
+  "baseUrl": "https://your-provider.example/v1",
+  "reasoningEffort": null,
+  "apiKeyEnv": "CODEAGENT_EVAL_API_KEY",
+  "runTimeoutSeconds": 300,
+  "modelTimeoutSeconds": 120,
+  "runtimeProperties": {}
+}
+```
+
+`agentJar` is relative to that JSON file. Its SHA-256 is recorded separately from
+the declared Git revision. Supply the credential through the named environment
+variable; it is not included in configuration snapshots or worker command lines.
+The hmall verifier also needs `EVAL_JAVA_HOME` and `EVAL_MAVEN_WRAPPER` as above.
+
+```powershell
+java -jar $agentJar evaluation run --pack $casePack --suite suites/core-v2.json --config backend/target/evaluation-run.json --output backend/target/evaluation/batch-example --repeat 2
+```
+
+The v2 case declares a single repair step and approval rules for business Java
+files, excluding `hm-service`. The v1 case and qualification command remain
+available. Case `steps` contain `id`, a logical `session` alias, and a package-relative
+prompt file. Repeated aliases share a session; a new alias creates a new session
+within the same attempt. Missing steps use the original prompt once. Approval
+rules declare operations, include patterns, and exclude patterns using Ant-style
+paths. Missing approval rules permit no automatic modifications. A denied proposal
+is recorded and the Agent can continue using allowed operations.
+
+Each attempt includes `attempt.json`, the original `worker-result.json`, normalized
+`execution.json`, `evidence/manifest.json`, `artifact/`, `changes.json`, `changes.patch`,
+and independent `verification/` output. Relative evidence paths in the manifest's
+step records start at `evidence/`. `runtime/` retains the isolated stores and logs.
+New files are included even when they were never tracked by Git. Artifact and
+verification workspace are separate copies.
+
+`initial-result.json` preserves the first conclusion. `result.json` is the current
+derived conclusion. A successful Run is not an automatic PASS: required execution
+must complete and independent checks must pass. Known model connection failures
+produce ERROR; the overall `AGENT_RUN_TIMEOUT` budget or context capacity exhaustion
+produces FAIL. Unknown execution failures remain PENDING_REVIEW. A failed Run's
+partial artifact passing tests cannot change the attempt into PASS.
+
+Cases can declare `manualChecks` as `id` / `instruction` pairs; a manual-only case
+may omit `verifier`. Copy the generated `pending-review.json` to a local input file,
+fill its reviewer/comment, each required PASS/FAIL and nonempty evidence file list
+(paths relative to the attempt directory), then import it:
+
+```powershell
+java -jar $agentJar evaluation review --attempt PATH_TO_ATTEMPT --input LOCAL_REVIEW_JSON
+```
+
+An unknown failed execution instead requests `executionClassification`: FAIL or
+ERROR, a reason, and evidence. It cannot be reviewed as PASS. Reviews are appended
+under `reviews/`; a corrected complete review creates another record. Automatic
+failures and the original execution are preserved. `batch.json` is the run-time
+index; after reviews, read each attempt's current `result.json` for its conclusion.
+
+Verifiers for explanation or scenario tasks may use `${evidence}` to receive the
+evidence manifest. Standalone `verify` accepts `--evidence PATH` for those cases;
+existing verifiers need no parameter changes. Tool payload references, step session
+snapshots and applicable memory are exported, with missing evidence marked. Memory
+existence alone does not prove the model used it. Token metrics cover only the
+returned main-loop usage and may be incomplete; extra compaction/consolidation
+calls are not included in that figure.
+
+A known ERROR stops the batch and preserves the remaining NOT_RUN entries. FAIL
+and PENDING_REVIEW do not stop subsequent attempts. Batch exit precedence is
+ERROR=2, FAIL=1, PENDING_REVIEW=3, otherwise 0. There are no automatic retries.
+Archive the entire batch before cleaning `target`. The internal `worker` command
+is a local implementation entry, not a public service or security sandbox.

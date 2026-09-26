@@ -5,6 +5,7 @@ public final class RunException extends RuntimeException {
     public static final String NOT_FOUND_CODE = "RUN_NOT_FOUND";
     public static final String IDEMPOTENCY_CONFLICT_CODE = "RUN_IDEMPOTENCY_CONFLICT";
     public static final String STATE_CORRUPTED_CODE = "RUN_STATE_CORRUPTED";
+    public static final String TIMEOUT_CODE = "AGENT_RUN_TIMEOUT";
 
     private final String code;
     private final boolean retryable;
@@ -17,6 +18,10 @@ public final class RunException extends RuntimeException {
 
     public static RunException notFound() {
         return new RunException(NOT_FOUND_CODE, "Run 不存在", false);
+    }
+
+    public static RunException timeout() {
+        return new RunException(TIMEOUT_CODE, "Agent 未在整体运行时限内完成任务", false);
     }
 
     public static RunException idempotencyConflict() {

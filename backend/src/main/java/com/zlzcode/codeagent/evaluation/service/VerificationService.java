@@ -28,6 +28,16 @@ public final class VerificationService {
      */
     public VerificationResult verify(LoadedCase loaded, Path input, Path output, Map<String, String> environment)
             throws IOException, InterruptedException {
+        return verify(loaded, input, output, environment, null);
+    }
+
+    public VerificationResult verify(LoadedCase loaded, Path input, Path output, Map<String, String> environment,
+                                     Path evidence) throws IOException, InterruptedException {
+        if (loaded.definition().verifier() == null) throw new IOException("This case requires manual review; use evaluation run");
+        boolean requiresEvidence = loaded.definition().verifier().command().stream().anyMatch(value -> value.contains("${evidence}"));
+        if (requiresEvidence && (evidence == null || !Files.isRegularFile(evidence))) {
+            throw new IOException("Verifier requires an evidence manifest");
+        }
         Path workspace = input.toRealPath();
         if (!Files.isDirectory(workspace)) throw new IOException("Workspace is not a directory");
         Path target = output.toAbsolutePath().normalize();
@@ -39,8 +49,10 @@ public final class VerificationService {
         Files.createDirectory(target);
         List<String> command = new ArrayList<>();
         for (String argument : loaded.definition().verifier().command()) {
-            command.add(argument.replace("${pack}", loaded.pack().toString())
-                    .replace("${workspace}", workspace.toString()).replace("${output}", target.toString()));
+            String expanded = argument.replace("${pack}", loaded.pack().toString())
+                    .replace("${workspace}", workspace.toString()).replace("${output}", target.toString());
+            if (evidence != null) expanded = expanded.replace("${evidence}", evidence.toRealPath().toString());
+            command.add(expanded);
         }
         ProcessBuilder builder = new ProcessBuilder(command)
                 .directory(CaseCatalogService.resolve(loaded.pack(), loaded.definition().verifier().workingDirectory()).toFile())

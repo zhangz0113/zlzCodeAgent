@@ -2,6 +2,7 @@ package com.zlzcode.codeagent.agent.error;
 
 import com.zlzcode.codeagent.agent.dto.AgentEvent;
 import com.zlzcode.codeagent.agent.exception.ApprovalException;
+import com.zlzcode.codeagent.agent.exception.RunException;
 import com.zlzcode.codeagent.context.exception.ContextReductionException;
 import com.zlzcode.codeagent.openai.exception.OpenAiIntegrationException;
 import com.zlzcode.codeagent.session.exception.SessionException;
@@ -18,6 +19,9 @@ public final class AgentRunExceptionMapper {
      * 关键约束：未知异常必须原样传播；将程序缺陷伪装成 INTERNAL_ERROR 会阻断日志、监控和测试发现问题。
      */
     public Mono<AgentEvent.Error> mapException(Throwable exception) {
+        if (exception instanceof RunException runException && RunException.TIMEOUT_CODE.equals(runException.code())) {
+            return Mono.just(new AgentEvent.Error(runException.getMessage(), runException.code(), false));
+        }
         if (exception instanceof OpenAiIntegrationException openAiException) {
             return Mono.just(new AgentEvent.Error(
                     openAiException.safeMessage(),

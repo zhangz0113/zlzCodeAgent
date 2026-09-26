@@ -74,6 +74,7 @@ public final class WorkspacePreparationService {
         mapper.writerWithDefaultPrettyPrinter().writeValue(target.resolve("prepared.json").toFile(), prepared);
         mapper.writerWithDefaultPrettyPrinter().writeValue(target.resolve("snapshot.json").toFile(), loaded.manifest());
         Files.writeString(target.resolve("prompt.md"), loaded.prompt());
+        mapper.writerWithDefaultPrettyPrinter().writeValue(target.resolve("steps.json").toFile(), loaded.steps());
         return prepared;
     }
 

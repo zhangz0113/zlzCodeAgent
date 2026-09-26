@@ -6,6 +6,7 @@ import com.zlzcode.codeagent.agent.contract.AgentLlmContract;
 import com.zlzcode.codeagent.agent.dto.AgentEvent;
 import com.zlzcode.codeagent.agent.error.AgentRunExceptionMapper;
 import com.zlzcode.codeagent.agent.exception.ApprovalException;
+import com.zlzcode.codeagent.agent.exception.RunException;
 import com.zlzcode.codeagent.agent.model.ApprovalRecord;
 import com.zlzcode.codeagent.agent.model.RunExecution;
 import com.zlzcode.codeagent.agent.model.RunRecord;
@@ -157,7 +158,9 @@ final class AgentRunExecutor {
                                                         execution, sessionRun, context, active)));
                                     }));
                 })
-                .timeout(runTimeout)
+                // 背景：评测需区分整体预算耗尽和模型连接故障。设计意图：仅在本计时器到期时产生专用错误。
+                // 关键约束：不能统一转换下游 TimeoutException，否则单次模型请求故障会被错误归为任务超时。
+                .timeout(runTimeout, Mono.error(RunException.timeout()))
                 .doOnError(error -> {
                     cleanupApproval(active);
                     fail(active, error);
