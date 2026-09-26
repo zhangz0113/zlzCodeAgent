@@ -1,0 +1,14 @@
+{
+  "includePatterns": [
+    "(^|/)pom\\.xml$",
+    "/src/main/java/.*\\.java$",
+    "/src/main/resources/.*\\.xml$",
+    "/src/main/resources/META-INF/(spring\\.factories|spring-configuration-metadata\\.json)$"
+  ],
+  "excludeRules": [
+    { "pattern": "(^|/)(target|logs|\\.idea|\\.git)/", "reason": "Generated output, logs or local metadata" },
+    { "pattern": "/src/test/", "reason": "Original tests are not the independent case verifier" },
+    { "pattern": "/src/main/resources/(application[^/]*\\.(yaml|yml)|bootstrap[^/]*\\.(yaml|yml))$", "reason": "Local deployment configuration is replaced by verifier-only configuration" },
+    { "pattern": "\\.(jks|p12|pfx)$", "reason": "Private key material is not a case asset" }
+  ]
+}

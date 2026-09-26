@@ -1,0 +1,13 @@
+diff --git a/item-service/src/main/java/com/hmall/item/controller/SearchController.java b/item-service/src/main/java/com/hmall/item/controller/SearchController.java
+--- a/item-service/src/main/java/com/hmall/item/controller/SearchController.java
++++ b/item-service/src/main/java/com/hmall/item/controller/SearchController.java
+@@ -32,7 +32,8 @@
+                 .eq(StrUtil.isNotBlank(query.getBrand()), Item::getBrand, query.getBrand())
+                 .eq(StrUtil.isNotBlank(query.getCategory()), Item::getCategory, query.getCategory())
+                 .eq(Item::getStatus, 1)
+-                .between(query.getMaxPrice() != null, Item::getPrice, query.getMinPrice(), query.getMaxPrice())
++                .ge(query.getMinPrice() != null, Item::getPrice, query.getMinPrice())
++                .le(query.getMaxPrice() != null, Item::getPrice, query.getMaxPrice())
+                 .page(query.toMpPage("update_time", false));
+         // 封装并返回
+         return PageDTO.of(result, ItemDTO.class);

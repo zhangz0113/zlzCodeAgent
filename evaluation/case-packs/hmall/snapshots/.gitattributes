@@ -1,0 +1,3 @@
+# Snapshot digests cover original bytes, including line endings.
+**/workspace/** -text
+**/manifest.json text eol=lf

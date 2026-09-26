@@ -1,0 +1,16 @@
+{
+  "id": "hmall-price-filter",
+  "version": 1,
+  "category": "bug-fix",
+  "snapshot": "snapshots/price-filter-v1/manifest.json",
+  "prompt": "cases/price-filter/prompt.md",
+  "verifier": {
+    "command": [
+      "powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+      "-File", "${pack}/cases/price-filter/verifier/verify.ps1",
+      "-Workspace", "${workspace}", "-OutputDirectory", "${output}"
+    ],
+    "workingDirectory": "cases/price-filter/verifier",
+    "timeoutSeconds": 600
+  }
+}

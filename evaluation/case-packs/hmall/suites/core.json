@@ -1,0 +1,7 @@
+{
+  "id": "hmall-core",
+  "version": 1,
+  "cases": [
+    { "path": "cases/price-filter/case.json", "id": "hmall-price-filter", "version": 1 }
+  ]
+}
