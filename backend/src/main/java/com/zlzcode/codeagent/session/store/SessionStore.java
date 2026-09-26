@@ -37,7 +37,6 @@ public final class SessionStore {
     private static final int MAX_FILE_BYTES = 8 * 1024 * 1024;
     private static final int MAX_TURNS = 1_000;
     private static final int MAX_MESSAGE_CHARS = 100_000;
-    private static final int MAX_TOOL_HISTORY = 15;
     private static final int MAX_TOOL_NAME_CHARS = 64;
     private static final int MAX_TOOL_VALUE_CHARS = 20_000;
     private static final int MAX_TASK_STEPS = 20;
@@ -254,16 +253,16 @@ public final class SessionStore {
                 && assistant.content().length() > MAX_MESSAGE_CHARS)) {
             throw invalidState.get();
         }
-        int toolCalls = 0;
+        /*
+         * 背景：合法 Run 可以执行超过 15 次工具调用，存储层的次数门槛曾使完成态和失败轨迹都无法落盘。
+         * 设计意图：此处校验每条记录的结构，持久化体积由既有文件大小和字段长度限制约束。
+         * 关键约束：不能按调用次数拒绝或截断合法历史，否则实际执行与保存的会话不一致，后续重放和评测证据会丢失。
+         */
         for (Session.ToolRound round : assistant.toolRounds()) {
             if (round == null
                     || round.calls().isEmpty()
                     || (round.assistantContent() != null
                     && round.assistantContent().length() > MAX_MESSAGE_CHARS)) {
-                throw invalidState.get();
-            }
-            toolCalls += round.calls().size();
-            if (toolCalls > MAX_TOOL_HISTORY) {
                 throw invalidState.get();
             }
             for (Session.ToolCall call : round.calls()) {
