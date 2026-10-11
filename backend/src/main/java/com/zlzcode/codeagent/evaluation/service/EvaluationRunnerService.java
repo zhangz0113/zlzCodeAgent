@@ -34,8 +34,21 @@ public final class EvaluationRunnerService {
 
     public Batch run(Path pack, String suiteFile, Path configFile, Path output, int repeat, Map<String, String> verifierEnvironment)
             throws IOException, InterruptedException {
+        return run(pack, suiteFile, configFile, output, repeat, Map.of(), verifierEnvironment);
+    }
+
+    public Batch run(Path pack, String suiteFile, Path configFile, Path output, int repeat,
+                     Map<String, Integer> repeatMap, Map<String, String> verifierEnvironment)
+            throws IOException, InterruptedException {
         if (repeat < 1) throw new IOException("repeat must be positive");
         var inspected = catalog.inspect(pack, suiteFile);
+        Map<String, Integer> repetitions = new java.util.LinkedHashMap<>();
+        for (var reference : inspected.suite().cases()) repetitions.put(reference.id(), repeat);
+        for (var override : repeatMap.entrySet()) {
+            if (!repetitions.containsKey(override.getKey()) || override.getValue() == null || override.getValue() < 1)
+                throw new IOException("repeat-map requires selected case ids and positive counts: " + override.getKey());
+            repetitions.put(override.getKey(), override.getValue());
+        }
         EvaluationRunConfig config = mapper.readValue(configFile.toFile(), EvaluationRunConfig.class).resolve(configFile);
         config.connection().normalizedApiKey();
         List<LoadedCase> cases = new ArrayList<>();
@@ -53,13 +66,13 @@ public final class EvaluationRunnerService {
         files.write(target.resolve("case-pack-files.json"), packFiles);
         List<BatchEntry> entries = new ArrayList<>();
         for (LoadedCase loaded : cases) {
-            for (int index = 1; index <= repeat; index++) entries.add(new BatchEntry(loaded.definition().id(), loaded.definition().version(), index, null, "NOT_RUN", null));
+            for (int index = 1; index <= repetitions.get(loaded.definition().id()); index++) entries.add(new BatchEntry(loaded.definition().id(), loaded.definition().version(), index, null, "NOT_RUN", null));
         }
         files.write(target.resolve("batch.json"), new Batch(1, batchId, inspected.suite(), config, jarHash, packHash, started, null, List.copyOf(entries)));
         int cursor = 0;
         boolean stopped = false;
         for (LoadedCase loaded : cases) {
-            for (int index = 1; index <= repeat; index++) {
+            for (int index = 1; index <= repetitions.get(loaded.definition().id()); index++) {
                 if (!stopped) {
                     String relative = "attempts/" + loaded.definition().id() + "/" + index;
                     Path attempt = target.resolve(relative);

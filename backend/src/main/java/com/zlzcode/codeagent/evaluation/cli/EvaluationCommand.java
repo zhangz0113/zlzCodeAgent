@@ -12,6 +12,9 @@ import com.zlzcode.codeagent.evaluation.service.WorkspacePreparationService;
 import com.zlzcode.codeagent.evaluation.service.AgentAttemptService;
 import com.zlzcode.codeagent.evaluation.service.EvaluationRunnerService;
 import com.zlzcode.codeagent.evaluation.service.EvaluationResultService;
+import com.zlzcode.codeagent.evaluation.service.EvaluationReportService;
+import com.zlzcode.codeagent.evaluation.service.EvaluationComparisonService;
+import com.zlzcode.codeagent.evaluation.service.EvaluationAnalysisService;
 
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -24,8 +27,12 @@ public final class EvaluationCommand {
             System.out.println("evaluation inspect --pack PATH --suite RELATIVE_JSON\n"
                     + "evaluation prepare --pack PATH --case RELATIVE_JSON --output NEW_DIR [--identity JSON]\n"
                     + "evaluation verify --pack PATH --case RELATIVE_JSON --workspace PATH --output NEW_DIR [--env JSON] [--evidence JSON]\n"
-                    + "evaluation run --pack PATH --suite RELATIVE_JSON --config JSON --output NEW_DIR [--repeat N] [--env JSON]\n"
-                    + "evaluation review --attempt PATH --input JSON");
+                    + "evaluation run --pack PATH --suite RELATIVE_JSON --config JSON --output NEW_DIR [--repeat N] [--repeat-map JSON] [--env JSON]\n"
+                    + "evaluation review --attempt PATH --input JSON\n"
+                    + "evaluation report --input JSON --output NEW_DIR [--issues DIR]\n"
+                    + "evaluation compare --baseline REPORT_DIR --candidate REPORT_DIR --experiment JSON --output NEW_DIR\n"
+                    + "evaluation analyze --report REPORT_DIR --input JSON --issues DIR\n"
+                    + "evaluation focus --report REPORT_DIR --issues DIR --ids ID1,ID2 --pack PATH --name NEW_NAME");
             return 0;
         }
         try {
@@ -65,7 +72,8 @@ public final class EvaluationCommand {
                             ? mapper.readValue(Path.of(options.get("env")).toFile(), new TypeReference<>() {}) : Map.of();
                     EvaluationRun.Batch batch = new EvaluationRunnerService(mapper).run(Path.of(required(options, "pack")),
                             required(options, "suite"), Path.of(required(options, "config")), Path.of(required(options, "output")),
-                            Integer.parseInt(options.getOrDefault("repeat", "1")), environment);
+                            Integer.parseInt(options.getOrDefault("repeat", "1")), options.containsKey("repeat-map")
+                                    ? mapper.readValue(Path.of(options.get("repeat-map")).toFile(), new TypeReference<Map<String, Integer>>() {}) : Map.of(), environment);
                     result = batch;
                     code = batch.attempts().stream().anyMatch(entry -> entry.status().equals("ERROR")) ? 2
                             : batch.attempts().stream().anyMatch(entry -> entry.status().equals("FAIL")) ? 1
@@ -84,6 +92,23 @@ public final class EvaluationCommand {
                         case PENDING_REVIEW -> 3;
                     };
                 }
+                case "report" -> {
+                    var report = new EvaluationReportService(mapper).generate(Path.of(required(options, "input")),
+                            Path.of(required(options, "output")), options.containsKey("issues") ? Path.of(options.get("issues")) : null);
+                    result = Map.of("output", Path.of(required(options, "output")).toAbsolutePath().toString(),
+                            "summary", report.summary(), "dataIssues", report.dataIssues());
+                    code = report.dataIssues().isEmpty() ? 0 : 2;
+                }
+                case "compare" -> {
+                    var comparison = new EvaluationComparisonService(mapper).generate(Path.of(required(options, "baseline")),
+                            Path.of(required(options, "candidate")), Path.of(required(options, "experiment")), Path.of(required(options, "output")));
+                    result = Map.of("output", Path.of(required(options, "output")).toAbsolutePath().toString(), "cases", comparison.changes().size());
+                }
+                case "analyze" -> result = new EvaluationAnalysisService(mapper).analyze(Path.of(required(options, "report")),
+                        Path.of(required(options, "input")), Path.of(required(options, "issues")));
+                case "focus" -> result = new EvaluationAnalysisService(mapper).focus(Path.of(required(options, "report")),
+                        Path.of(required(options, "issues")), java.util.Arrays.stream(required(options, "ids").split(",")).map(String::trim).toList(),
+                        Path.of(required(options, "pack")), required(options, "name"));
                 default -> throw new IllegalArgumentException("Unknown evaluation command: " + args[0]);
             }
             System.out.println(mapper.writerWithDefaultPrettyPrinter().writeValueAsString(result));
@@ -100,9 +125,13 @@ public final class EvaluationCommand {
             case "inspect" -> Set.of("pack", "suite");
             case "prepare" -> Set.of("pack", "case", "output", "identity");
             case "verify" -> Set.of("pack", "case", "output", "workspace", "env", "evidence");
-            case "run" -> Set.of("pack", "suite", "config", "output", "repeat", "env");
+            case "run" -> Set.of("pack", "suite", "config", "output", "repeat", "repeat-map", "env");
             case "worker" -> Set.of("request");
             case "review" -> Set.of("attempt", "input");
+            case "report" -> Set.of("input", "output", "issues");
+            case "compare" -> Set.of("baseline", "candidate", "experiment", "output");
+            case "analyze" -> Set.of("report", "input", "issues");
+            case "focus" -> Set.of("report", "issues", "ids", "pack", "name");
             default -> throw new IllegalArgumentException("Unknown evaluation command: " + args[0]);
         };
         for (int index = 1; index < args.length; index += 2) {

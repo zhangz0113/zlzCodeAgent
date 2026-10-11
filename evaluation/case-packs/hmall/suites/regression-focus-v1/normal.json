@@ -1,0 +1,13 @@
+{
+  "id" : "regression-focus-v1-normal",
+  "version" : 1,
+  "cases" : [ {
+    "path" : "cases/cart-location/case.json",
+    "id" : "hmall-cart-location",
+    "version" : 1
+  }, {
+    "path" : "cases/search-multiturn/case.json",
+    "id" : "hmall-search-multiturn",
+    "version" : 1
+  } ]
+}

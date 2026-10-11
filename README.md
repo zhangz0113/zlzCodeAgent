@@ -285,3 +285,137 @@ case checks A's stored provenance and B's independent conversation and learned
 format. Applicable-memory exports do not prove which entries were injected into
 an individual model request. Multi-turn business tests inspect the final artifact;
 the runner does not snapshot and test each intermediate source revision.
+
+### Offline evaluation reports and controlled comparisons
+
+The production JAR also provides `report`, `compare`, `analyze`, and `focus`.
+These commands read saved files and do not call a model or start the daily Web
+application. Reports preserve a copy of their inputs; always use a new output
+directory. Move the whole report directory to retain relative evidence links.
+
+Create a local report selection file (paths are relative to that file):
+
+```json
+{
+  "id": "capabilities-observation",
+  "title": "CodeAgent capability observations",
+  "groups": [
+    {"id": "normal", "label": "Normal conditions", "batch": "phase3-capabilities-v1", "suite": "suites/capabilities-v1.json"},
+    {"id": "payload", "label": "Tool payload conditions", "batch": "phase3-tool-payload-v1", "suite": "suites/tool-payload-v1.json"},
+    {"id": "compaction", "label": "Compaction conditions", "batch": "phase3-history-compaction-v1", "suite": "suites/history-compaction-v1.json"}
+  ]
+}
+```
+
+Select formal batches explicitly; calibration and synthetic verifier checks do
+not count as Agent observations. Group IDs must remain stable between compared
+reports. A duplicate attempt ID is rejected even if its archive was copied.
+
+```powershell
+java -jar $agentJar evaluation report --input LOCAL_SELECTION_JSON --output NEW_REPORT_DIR
+java -jar $agentJar evaluation report --input LOCAL_SELECTION_JSON --issues LOCAL_ISSUES_DIR --output NEW_ANALYZED_REPORT_DIR
+java -jar $agentJar evaluation compare --baseline BASELINE_REPORT_DIR --candidate CANDIDATE_REPORT_DIR --experiment LOCAL_EXPERIMENT_JSON --output NEW_COMPARISON_DIR
+```
+
+Open `report.html` or `comparison.html` directly; CSS, scripts, and data are
+embedded, with no CDN or server. Markdown and JSON outputs contain the same
+calculated results. Current `result.json` takes precedence over a stale batch
+index; initial results and reviews remain linked. Missing required results are
+report data issues, not guessed FAILs. `report` exits with 2 for these data
+issues; a complete report containing failed Agent attempts exits with 0.
+An incomparable experiment also produces a valid comparison report.
+
+The experiment input specifies the hypothesis and exact changing condition
+paths. For an Agent build change, for example:
+
+```json
+{
+  "title": "Before and after the Agent change",
+  "hypothesis": "The change improves the selected task without breaking other cases.",
+  "changedFactors": ["/agentJarSha256"],
+  "environmentDeclaration": "Describe the known verifier environment and its evidence; leave null when unknown.",
+  "environmentEvidence": []
+}
+```
+
+Condition paths are JSON pointers shown in report JSON. Declare every actual
+changed leaf; a model change can affect both `/model` and `/effective/model`.
+There is no wildcard exemption. Case-pack, snapshot, verifier, manual-check and
+approval identities cannot be waived as strategy variables. Changed cases need
+a new baseline on the same new package. Effective defaults are compared, while
+known per-attempt state paths are excluded.
+
+A verifier may save `environment.json` alongside its results, recording
+`runtime`, `runtimeVersion`, `buildTool`, `buildToolVersion`, and `os` as nonempty
+strings, plus any relevant dependency versions or configuration. For example,
+a frontend case can record Node.js and pnpm, and a Java case JDK and Maven.
+These records must describe the actual verification environment, not inferred
+versions from directory names. Matching recorded conditions permit a controlled
+observation; incomplete legacy environment records or a human declaration yield
+only a limited comparison. Optional `environmentEvidence` entries reference files
+inside `baseline/` or `candidate/` bundles and support that declaration; they do
+not automatically certify it. Small samples never establish statistical significance.
+
+Repeated attempts are reported as full distributions, not paired by repetition
+number. Same or overlapping attempt IDs are explicitly identified. Re-reviewing
+an answer or re-verifying an old artifact is not a new Agent attempt. Costs show
+recorded main-loop use and coverage; absent metrics remain unknown. Passing-case
+costs are provided only when both sides have passing observations of that case.
+
+For per-case repetition, a local JSON map such as `{"hmall-price-filter": 3}`
+overrides the default `--repeat`; unknown case IDs and nonpositive counts are
+rejected before execution:
+
+```powershell
+java -jar $agentJar evaluation run --pack $casePack --suite suites/capabilities-v1.json --config LOCAL_RUN_CONFIG --output NEW_BATCH_DIR --repeat 1 --repeat-map LOCAL_REPEAT_MAP --env LOCAL_VERIFIER_ENV
+```
+
+### Failure analysis and regression follow-up
+
+An analysis entry has an ID, case identity, referenced attempts, observed facts,
+origin (`AGENT`, `CASE_VERIFIER`, `ENVIRONMENT`, `UNKNOWN`), cause category,
+confidence (`UNKNOWN`, `SUSPECTED`, `CONFIRMED`), author, and next action. Example:
+
+```json
+{
+  "id": "01-observed-problem", "title": "Describe the observed problem",
+  "status": "OPEN", "label": "needs-triage", "author": "Your name / analysis proposal",
+  "caseId": "hmall-price-filter", "caseVersion": 2,
+  "attempts": [{"group": "normal", "attemptId": "COPY_FROM_REPORT", "evidence": ["result.json", "verification/verification.json"]}],
+  "observed": "Facts supported by those files, separately from a proposed cause.",
+  "origin": "UNKNOWN", "category": "UNKNOWN", "confidence": "UNKNOWN",
+  "nextAction": "The next concrete investigation or retest.",
+  "change": null, "retestReport": null, "comparisonReport": null, "resolution": null
+}
+```
+
+```powershell
+java -jar $agentJar evaluation analyze --report REPORT_DIR --input LOCAL_ANALYSIS_JSON --issues LOCAL_ISSUES_DIR
+java -jar $agentJar evaluation focus --report REPORT_DIR --issues LOCAL_ISSUES_DIR --ids 01-observed-problem --pack $casePack --name regression-focus-example
+```
+
+Each issue is a Markdown file. New analysis appends a structured revision under
+`Comments`, preserving earlier analysis and the original result. Use `review`
+for declared human judgments and `verify` for artifact rechecks. Neither is
+replaced by an issue card. `READY_FOR_RETEST` requires a concrete `change`;
+`VERIFIED` requires an explanation and existing `retestReport` and
+`comparisonReport` directories linking a new executed attempt to this case.
+It means verification was performed, not that the issue necessarily improved.
+
+Focus outputs are new suites under `suites/<name>/`, one per condition group,
+plus `conditions.json`. They reference existing cases without copying sources,
+prompts or tests. Supply the chosen Agent build and credentials when running;
+the generated conditions file is guidance, not a complete run configuration.
+Creating these suites changes the package hash: create them **before** freezing
+the package and running both baseline and candidate. Keep focus results and
+full-suite regression results separate.
+
+For a newly discovered issue not covered by an existing case: preserve its
+source, fix a reproducible code snapshot and prompt, define independent checks,
+validate the failing start and a correct reference, then add a versioned case
+and suite reference. Use existing `inspect`, `prepare`, and `verify` commands
+and the package's qualification entry. When the historical source is unavailable,
+label the new case as a representative reproduction. Then record the baseline,
+make the separately reviewed Agent change, run focused and full regression,
+compare all observations, and link the outcome back to the issue. Tool delivery
+alone does not constitute this completed experiment.
