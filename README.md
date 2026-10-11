@@ -212,3 +212,76 @@ and PENDING_REVIEW do not stop subsequent attempts. Batch exit precedence is
 ERROR=2, FAIL=1, PENDING_REVIEW=3, otherwise 0. There are no automatic retries.
 Archive the entire batch before cleaning `target`. The internal `worker` command
 is a local implementation entry, not a public service or security sandbox.
+
+## Evaluation: hmall capability cases
+
+The case package includes seven tasks covering code understanding, bug repair,
+small features, multi-turn/context behavior, and cross-session memory. Case assets,
+reference patches and independent acceptance tests live under
+`evaluation/case-packs/hmall/`; only snapshot source and step prompts are presented
+to the Agent. The core runner remains independent of Java, Maven and hmall.
+
+| Suite | Cases | Runtime properties |
+| --- | --- | --- |
+| `suites/capabilities-v1.json` | Cart explanation, price repair v2, stock filter, multi-turn search, session memory | `profiles/normal-v1.json` |
+| `suites/tool-payload-v1.json` | Directed retrieval from a stored tool result | `profiles/tool-payload-v1.json` |
+| `suites/history-compaction-v1.json` | Early task constraint retained across history compaction | `profiles/history-compaction-v1.json` |
+
+Feature tasks start from `search-base-v1`, which applies the trusted price repair
+to the original fixed snapshot. Their checks retain the original 10 price tests:
+stock has 16 business checks, and multi-turn search has 23 plus scenario evidence
+checks. The verifier builds a separate copy using Java 11, Maven and local H2;
+no service registry, shared database or running microservice cluster is required.
+
+Qualify the cases before collecting model results. From the repository root,
+using the `$agentJar`, `$casePack` and verifier environment configured above:
+
+```powershell
+& "$casePack/validate-phase3.ps1" -CodeAgentJar $agentJar `
+  -OutputDirectory backend/target/evaluation/phase3-qualification `
+  -Java11Home $env:EVAL_JAVA_HOME -MavenWrapper $env:EVAL_MAVEN_WRAPPER
+```
+
+The script uses a new output directory, checks legacy compatibility, verifies
+reference and deliberately incorrect implementations, and checks synthetic
+positive/negative evidence. `-Mode Business` or `-Mode Evidence` runs one group.
+Synthetic evidence is explicitly marked; it is verifier qualification, not a
+measurement of Agent capability. Maven dependencies must be available as with
+the original price case.
+
+Runtime properties apply to an entire batch, so execute the three suites with
+their matching profiles. Starting from the local connection config above:
+
+```powershell
+$config = Get-Content backend/target/evaluation-run.json -Raw -Encoding UTF8 | ConvertFrom-Json
+$groups = @(
+  @{ Suite = 'capabilities-v1'; Profile = 'normal-v1' },
+  @{ Suite = 'tool-payload-v1'; Profile = 'tool-payload-v1' },
+  @{ Suite = 'history-compaction-v1'; Profile = 'history-compaction-v1' }
+)
+foreach ($group in $groups) {
+  $config.runtimeProperties = Get-Content "$casePack/profiles/$($group.Profile).json" -Raw -Encoding UTF8 | ConvertFrom-Json
+  $configPath = "backend/target/evaluation-$($group.Suite).json"
+  $config | ConvertTo-Json -Depth 10 | Set-Content $configPath -Encoding utf8
+  java -jar $agentJar evaluation run --pack $casePack --suite "suites/$($group.Suite).json" --config $configPath --output "backend/target/evaluation/phase3-$($group.Suite)" --repeat 1 --env backend/target/evaluation-env.json
+}
+```
+
+Keep the model key in `CODEAGENT_EVAL_API_KEY`; profiles contain no connection
+secrets. Use fresh output paths for subsequent runs. Compare only attempts with
+the same case/snapshot and declared execution conditions; one attempt per case
+does not establish a stable success rate.
+
+Explanation, multi-turn delivery, compaction semantics and memory semantics have
+fixed manual checks. An automatic PASS can therefore leave the attempt
+PENDING_REVIEW until the review command above records the human decision.
+Automatic failures cannot be overridden by a favorable manual review.
+
+Mechanism verifiers export `mechanism-evidence.json` alongside their checks.
+Retrieval requires the actual matching `read_tool_result` response, not a correct
+answer obtained by rereading the file. Compaction requires a checkpoint covering
+the early turn, and reports memory as a possible alternative source. The memory
+case checks A's stored provenance and B's independent conversation and learned
+format. Applicable-memory exports do not prove which entries were injected into
+an individual model request. Multi-turn business tests inspect the final artifact;
+the runner does not snapshot and test each intermediate source revision.

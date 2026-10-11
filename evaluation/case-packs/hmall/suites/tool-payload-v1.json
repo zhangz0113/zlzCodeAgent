@@ -1,0 +1,11 @@
+{
+  "id": "hmall-tool-payload-v1",
+  "version": 1,
+  "cases": [
+    {
+      "path": "cases/tool-payload/case.json",
+      "id": "hmall-tool-payload",
+      "version": 1
+    }
+  ]
+}

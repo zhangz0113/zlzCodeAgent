@@ -1,0 +1,5 @@
+{
+  "codeagent.context.spill-threshold-chars": "4096",
+  "codeagent.context.compact-tool-result-chars": "512",
+  "codeagent.context.max-retrieval-chars": "2048"
+}

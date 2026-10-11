@@ -1,0 +1,759 @@
+{
+  "snapshotId": "sha256:fde843b27746f0dfe8f4f47449697b83e6e25554a55ba1e9d405b69def7c7973",
+  "sourceDescription": "Derived from sha256:e953eb50dfd307dc8f1f8d01b655c5cc91da46e5f7d331fffb44b955a548ea14; trusted patch=True; additional=",
+  "files": [
+    {
+      "path": "cart-service/pom.xml",
+      "sha256": "e5631b36183e45a1333674c55934db3cfab1d477b3e2404179e452927901c894"
+    },
+    {
+      "path": "cart-service/src/main/java/com/hmall/cart/CartApplication.java",
+      "sha256": "2368c89df6dad7dd0a85cc77c419a1e09e06e8451125720fd2cbca1f0cddc010"
+    },
+    {
+      "path": "cart-service/src/main/java/com/hmall/cart/config/CartProperties.java",
+      "sha256": "723ad3aa4e2e1757324c273e64072dbc586e3254634fc9328d28dcc25feb7f9e"
+    },
+    {
+      "path": "cart-service/src/main/java/com/hmall/cart/config/RemoteCallConfig.java",
+      "sha256": "650fb562e00c6aae1f0e91d416ea4e6947deebc6e9a139d6508ac37180b85392"
+    },
+    {
+      "path": "cart-service/src/main/java/com/hmall/cart/controller/CartController.java",
+      "sha256": "a7df39b50aa11b0d8bc1dfa4c8439958806ad913eb6bd10b6e8fccb074a88e98"
+    },
+    {
+      "path": "cart-service/src/main/java/com/hmall/cart/domain/dto/CartFormDTO.java",
+      "sha256": "820913f4380703715c7c7c30169734f83f0f667b6e7b365a63fdeb221d4be4da"
+    },
+    {
+      "path": "cart-service/src/main/java/com/hmall/cart/domain/po/Cart.java",
+      "sha256": "245e51a7bd6a57ac2261a99fd547073205bd37fdd09744d109b63aa28c922cfb"
+    },
+    {
+      "path": "cart-service/src/main/java/com/hmall/cart/domain/vo/CartVO.java",
+      "sha256": "9d9036f67565270a07176080e9e40b63bfaa387bad9d80172290bc88d11763fb"
+    },
+    {
+      "path": "cart-service/src/main/java/com/hmall/cart/mapper/CartMapper.java",
+      "sha256": "c6035a114073676ab3a769e460ae1967e6538e5918a2935407fd1f26e32c2367"
+    },
+    {
+      "path": "cart-service/src/main/java/com/hmall/cart/service/ICartService.java",
+      "sha256": "bda866ad6bcad4b6c3e9bd962d59791d5a053671c1e2fbbae727383ebaee48fd"
+    },
+    {
+      "path": "cart-service/src/main/java/com/hmall/cart/service/impl/CartServiceImpl.java",
+      "sha256": "3b93044e7d18c3ae260594882c26626094f9f36e70be1767627935e09d983581"
+    },
+    {
+      "path": "hm-api/pom.xml",
+      "sha256": "48b9f08e13b865d50eb45bdbc983390b82b728799ed05d9302c11bd00390d9d4"
+    },
+    {
+      "path": "hm-api/src/main/java/com/hmall/api/client/CartClient.java",
+      "sha256": "908127b8c942d64ab13082d5786ad273aea5e00bf27ec9419f69aab3336d14e7"
+    },
+    {
+      "path": "hm-api/src/main/java/com/hmall/api/client/ItemClient.java",
+      "sha256": "37a2d4a6fb4ea66978d921353b5956a0b3620dd9431ba1f3a70a15378e51e602"
+    },
+    {
+      "path": "hm-api/src/main/java/com/hmall/api/client/TradeClient.java",
+      "sha256": "41298c221e6cdd85d4e344e3d9357ee1ff492c2ab37cbdd51d617cf3898b37d7"
+    },
+    {
+      "path": "hm-api/src/main/java/com/hmall/api/client/UserClient.java",
+      "sha256": "3f000baaa49e5c07d071b5d6e8f48ae9e24df1c43f63e413140a6f95079ae882"
+    },
+    {
+      "path": "hm-api/src/main/java/com/hmall/api/client/fallback/ItemClientFallBack.java",
+      "sha256": "3c7de32b57950414b8f1e7101e7377802e389330897082aa037fa864a84614f7"
+    },
+    {
+      "path": "hm-api/src/main/java/com/hmall/api/config/DefaultFeignConfig.java",
+      "sha256": "bad0d62055ccd1e87126b11e4fa7344034e9bee7f0d92d08ffa22782afeb3634"
+    },
+    {
+      "path": "hm-api/src/main/java/com/hmall/api/dto/CartFormDTO.java",
+      "sha256": "56cf9e49e66e2a1653885ae1c9b969688c43a68b709699e8825c466049b975cd"
+    },
+    {
+      "path": "hm-api/src/main/java/com/hmall/api/dto/ItemDTO.java",
+      "sha256": "7f4829a2438b49ea75d7c22d6627a1017715e4e8a94696aa80f6df1cd73705f5"
+    },
+    {
+      "path": "hm-api/src/main/java/com/hmall/api/dto/LoginFormDTO.java",
+      "sha256": "3d6424bd4dd074966876890dedc386e9d08e335d3d3c7f0c9c6b4d4b154b20da"
+    },
+    {
+      "path": "hm-api/src/main/java/com/hmall/api/dto/OrderDetailDTO.java",
+      "sha256": "ea7fe0047b76d0b0995ecda121e234a4b8bc5f3ca5815c8635ade845edb85c33"
+    },
+    {
+      "path": "hm-api/src/main/java/com/hmall/api/dto/OrderFormDTO.java",
+      "sha256": "9b444cd1795ec9c5c41bbad2659920d77447348f97cdd3c72b46afd235e88ad0"
+    },
+    {
+      "path": "hm-api/src/main/java/com/hmall/api/po/Cart.java",
+      "sha256": "12744c5e3c4ee8d47bfcfe8b2b22aca3052990f3a8a343b9d8b2787b777ded1a"
+    },
+    {
+      "path": "hm-api/src/main/java/com/hmall/api/po/Order.java",
+      "sha256": "922675e2a86e260b90771c6e28a02a9bd6073e9a3463ae98b5c75a94f3246fba"
+    },
+    {
+      "path": "hm-api/src/main/java/com/hmall/api/vo/CartVO.java",
+      "sha256": "3cfcda7b54a94aae6655168773adba99dbd20d234f9bb21ba7b46bc9c476f4d3"
+    },
+    {
+      "path": "hm-api/src/main/java/com/hmall/api/vo/OrderVO.java",
+      "sha256": "aa59fa44e1417a18c56afebb06d955c75b9292dc31ad13caf6f6a37bf6024a6a"
+    },
+    {
+      "path": "hm-api/src/main/java/com/hmall/api/vo/UserLoginVO.java",
+      "sha256": "d737593b2d619dcbec577bf9573605bf1651d298e7a3db381ebe46a67cb3a5ab"
+    },
+    {
+      "path": "hm-common/pom.xml",
+      "sha256": "807b8e26bb41f688ce09f561fc6948b33fac046822bbf9c19d82da8ad239417b"
+    },
+    {
+      "path": "hm-common/src/main/java/com/hmall/common/advice/CommonExceptionAdvice.java",
+      "sha256": "7a49454e42587a90f1dd1d5187258284d597e8e9e9d2d2c5ac09664aa739bf96"
+    },
+    {
+      "path": "hm-common/src/main/java/com/hmall/common/config/JsonConfig.java",
+      "sha256": "d57dc154ad9530b0314593e8c8a8034cf75debfe107fa23e8e05a298fd8a58a5"
+    },
+    {
+      "path": "hm-common/src/main/java/com/hmall/common/config/MvcConfig.java",
+      "sha256": "34aa0f567a5307fb00ecb4f80e5ce2328eb85d1d736e1f8d54d4dc93d81cc488"
+    },
+    {
+      "path": "hm-common/src/main/java/com/hmall/common/config/MyBatisConfig.java",
+      "sha256": "687761cb0a05334b805aef193d20c8516767b8b941fbe9e38540fd5d400c1522"
+    },
+    {
+      "path": "hm-common/src/main/java/com/hmall/common/domain/PageDTO.java",
+      "sha256": "6e597c2aa70e100e15f41407d9b6161d0a77df98ed45950cfb401e0bae7ed1c9"
+    },
+    {
+      "path": "hm-common/src/main/java/com/hmall/common/domain/PageQuery.java",
+      "sha256": "7131fe4522f162b9d800265e6e235a0d0c514a8edc02230abd34fcbe389e2434"
+    },
+    {
+      "path": "hm-common/src/main/java/com/hmall/common/domain/R.java",
+      "sha256": "673da5b4a88013035aac4552633f4e4869de0f96c0f320d078a5dd77fc09efb2"
+    },
+    {
+      "path": "hm-common/src/main/java/com/hmall/common/exception/BadRequestException.java",
+      "sha256": "474bcc3b7f54fc665457c7d1801c836d02dc5e3d3aa166ee7c6d06526a3ce823"
+    },
+    {
+      "path": "hm-common/src/main/java/com/hmall/common/exception/BizIllegalException.java",
+      "sha256": "e3c6e7fc62fa055698fc9b613c388109b9a12843b3100179407d97da86185f66"
+    },
+    {
+      "path": "hm-common/src/main/java/com/hmall/common/exception/CommonException.java",
+      "sha256": "9735e0ada96cec9f27935bc96aa3f42a4e76b8e0d2e54322358c3595db711176"
+    },
+    {
+      "path": "hm-common/src/main/java/com/hmall/common/exception/DbException.java",
+      "sha256": "b52b836f248f81ee985446389fc10cdb23cf98f391c4ea924b5e33ba6a5bace3"
+    },
+    {
+      "path": "hm-common/src/main/java/com/hmall/common/exception/ForbiddenException.java",
+      "sha256": "2a61b8550c58450915b1c55f592ef405eb8f170d7d3937517fafd61caf412a04"
+    },
+    {
+      "path": "hm-common/src/main/java/com/hmall/common/exception/UnauthorizedException.java",
+      "sha256": "5e900630049c516bc3b8717c089abba3492424af89a45ff101547fca26ec2dc8"
+    },
+    {
+      "path": "hm-common/src/main/java/com/hmall/common/interceptor/UserInfoInterceptor.java",
+      "sha256": "19410b6988e8b699abe24b245f90f404942ede030ecd5954e3d7d06c40094826"
+    },
+    {
+      "path": "hm-common/src/main/java/com/hmall/common/utils/BeanUtils.java",
+      "sha256": "d82738017d6f23a2393787f4134196a8d33744059821b8866248733df507e098"
+    },
+    {
+      "path": "hm-common/src/main/java/com/hmall/common/utils/CollUtils.java",
+      "sha256": "71fb11d8437fcbf28286c33e7f59cba79e408aff705257b2e45318211b0bb54a"
+    },
+    {
+      "path": "hm-common/src/main/java/com/hmall/common/utils/Convert.java",
+      "sha256": "7470b4e3f1ac1657b8148be6bbc9c9394ad18705989b9ee61cecaab3b16f5960"
+    },
+    {
+      "path": "hm-common/src/main/java/com/hmall/common/utils/CookieBuilder.java",
+      "sha256": "c3fac37f46c90d832f0edcbb40967591225af3165a2b0b09207283c94bb9f561"
+    },
+    {
+      "path": "hm-common/src/main/java/com/hmall/common/utils/UserContext.java",
+      "sha256": "2b398069c96bb583988e5065d5f7427348837bba180cf00e2122766cc38764f6"
+    },
+    {
+      "path": "hm-common/src/main/java/com/hmall/common/utils/WebUtils.java",
+      "sha256": "a4fb8b239e5ed56264a8d91819080e392e3f969f7eddd744d8b116a0e839dad4"
+    },
+    {
+      "path": "hm-common/src/main/resources/META-INF/spring-configuration-metadata.json",
+      "sha256": "3fd74ffb196a47ba533bca632f040c874dc4f37e86a0168ebdb20a77399e078e"
+    },
+    {
+      "path": "hm-common/src/main/resources/META-INF/spring.factories",
+      "sha256": "4fa5426dcf054495d5f53953b14853000878b950849f1af5f213c82e941f22f2"
+    },
+    {
+      "path": "hm-gateway/pom.xml",
+      "sha256": "7b769ca02f65e28e06b62cdad1f3c149716069a2b0bebf65df68022aeafbe1ee"
+    },
+    {
+      "path": "hm-gateway/src/main/java/com/hmall/gateway/GatewayApplication.java",
+      "sha256": "9cb3f8b9b5c4b9e4ae6b06efe31369383641d3ef852ff9aed1ba57fb307e1445"
+    },
+    {
+      "path": "hm-gateway/src/main/java/com/hmall/gateway/config/AuthProperties.java",
+      "sha256": "c70455bc1ab6430ab28bd3da4973445066eb6c0295e6512afcbea13252ba7c5f"
+    },
+    {
+      "path": "hm-gateway/src/main/java/com/hmall/gateway/config/JwtProperties.java",
+      "sha256": "1882591b04471e6649caf1e1cbc4abb90b64cfc06ff3e288b93b0de47f10d1a6"
+    },
+    {
+      "path": "hm-gateway/src/main/java/com/hmall/gateway/config/SecurityConfig.java",
+      "sha256": "fdeae8b1b3159e6cc7a961f5c0829eb3ef104d4ac7ca594b4d8a23f48bb9d9a2"
+    },
+    {
+      "path": "hm-gateway/src/main/java/com/hmall/gateway/filter/AuthGlobalFilter.java",
+      "sha256": "c17bc130f693fd4e0a0447deeda380e827e3003e9b8aa291933999fdd79eec68"
+    },
+    {
+      "path": "hm-gateway/src/main/java/com/hmall/gateway/route/DynamicRouteLoader.java",
+      "sha256": "aa48aa6eead792a856f6b8e70c14a3d5ab82a10a9219fcdb282adbcbdb60721b"
+    },
+    {
+      "path": "hm-gateway/src/main/java/com/hmall/gateway/util/JwtTool.java",
+      "sha256": "00903ccda97e3904c1feed19c4ec7f8c7b7347d61a1986b059caa471f91f310c"
+    },
+    {
+      "path": "hm-service/pom.xml",
+      "sha256": "5fdb8bb6f4567c4a7af16f5d98b0c0c87ac9f58bae692caebc26d77f9869c909"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/HMallApplication.java",
+      "sha256": "c04494eb4d9f272863b7345bda9d2014d3b055be28e6f16c686aac367ad0e290"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/config/AuthProperties.java",
+      "sha256": "f79401db8a496c9f9a11df25c47c4c9daad599b5e382b29447625e703407b5ae"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/config/JwtProperties.java",
+      "sha256": "df1560aa525ef6fda3b858404930472fdacb9ef3118abf0a95ef24aac3d80c12"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/config/MvcConfig.java",
+      "sha256": "860764877a5232afd84a14534dec7f70fa71524471e4bd18575b2252aa4ad79b"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/config/SecurityConfig.java",
+      "sha256": "5d022e39e9878262644871c8d748a506aa9043eeb3b4bd28e136cc3a4b138a41"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/controller/AddressController.java",
+      "sha256": "76e838e696ecb611e7918de9de055cba1e2e8512a93f7da7e155cb41f92d615f"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/controller/CartController.java",
+      "sha256": "5c2fd86da2a649a68c20be1cf6d5703687b64bdce72061d8f2c439f31439725d"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/controller/HelloController.java",
+      "sha256": "f00fa94e6a9ee44391b76ec6530a783d63e557af3f01e2c714c9dd8049e7d7d2"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/controller/ItemController.java",
+      "sha256": "5009bd956f089dfe2537575fa2162f9581b5fbcd090fb88443a6e05971178719"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/controller/OrderController.java",
+      "sha256": "de37a20629f3da06e207abcc94e3a7260d703aeab0f1dcced2b0019eacc81be1"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/controller/PayController.java",
+      "sha256": "761dfdc832b3bfe9571b88a118be5f63bca118b39f49ba9fd9b03d620932f677"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/controller/SearchController.java",
+      "sha256": "16c10bfc4da088c81af62d7a17940ec53d78617e80fa2cfcc1b95a68a2da1d83"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/controller/UserController.java",
+      "sha256": "9315507a78200d6445dbb3d54ee8fa70d6698531199b2df039c4bb961a6282ff"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/domain/dto/AddressDTO.java",
+      "sha256": "26e9c632af7f75d44313ed98e278f09071e75b1b11ab819792d1542bc1a3628a"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/domain/dto/CartFormDTO.java",
+      "sha256": "92b6339cce41e28fb56b70292c1dbc1627e74001062c91da8dca105c5cbd395e"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/domain/dto/ItemDTO.java",
+      "sha256": "a2300c75f8dab474cad4466ee3638b1b487da4e8d774b9a22878d949e1d442cd"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/domain/dto/LoginFormDTO.java",
+      "sha256": "7e48943707929d87380ea67e80f8b9c9f23c7cba58030224e02bfccf0088edc9"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/domain/dto/OrderDetailDTO.java",
+      "sha256": "d9c91debda7a91c3a6bc97a861bbedbc86b6d7975c02d85607334cfc939c0a76"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/domain/dto/OrderFormDTO.java",
+      "sha256": "e94ae090c9bc08d719648f2fca9facc67d58d17c481112d6ce01e82b68f088da"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/domain/dto/PayApplyDTO.java",
+      "sha256": "7dce12c2ab865c68aaab90972c404aabeb822eea79e7f16f45e03ca8dabbb14d"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/domain/dto/PayOrderFormDTO.java",
+      "sha256": "1438ae1ed5a34013c5694a598cbb0c2c1e34071b9fad1ab61d6b6c5a9509d7a4"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/domain/po/Address.java",
+      "sha256": "e09c7aef2d23d5ce18a448eff12e19fe4f4d8acd4f146524a187ca9be211dfc0"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/domain/po/Cart.java",
+      "sha256": "24484cb11dfee1f1cc4d7c337db6b1cebaf66523d9c21fd3c09d9ef8dca1b597"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/domain/po/Item.java",
+      "sha256": "5cac256c76e94fc9af8b438790cf3886bfb165868ae024b310eff6ef50a03575"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/domain/po/Order.java",
+      "sha256": "ef3f84e0d099dda1edcdc05a43bab80b683b523cbe5f62d584f39a8302d515b0"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/domain/po/OrderDetail.java",
+      "sha256": "9d4445f2fe23d46476dc4707265576477df71855ad96eb2b5ee9500da6321672"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/domain/po/OrderLogistics.java",
+      "sha256": "01a63a1956331740ab82bb0fa8d2efc877cc1078d0c0175297ea09ba08551882"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/domain/po/PayOrder.java",
+      "sha256": "d8bfe28efb6b675ee3dfd569204df61aed9b9b920e5700648553a99aa989abf0"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/domain/po/User.java",
+      "sha256": "bba192c7d9e4920d2e86acad5c0b555e812e22e15afa5140c114f4e52af8b6c1"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/domain/query/ItemPageQuery.java",
+      "sha256": "f011df1c50d01688ad73d6c5956bd98bc212c4f548da9720b73a066808da6926"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/domain/vo/CartVO.java",
+      "sha256": "03c156f9462019a5e7a5ccc9aeed4044642d152c05d23e41d506b4c42639b664"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/domain/vo/OrderVO.java",
+      "sha256": "62790f0c70afb045a1a73560fa361638987b04026b8f0a17a533d8a54cd62bc6"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/domain/vo/PayOrderVO.java",
+      "sha256": "1b98c06e6a6f80f4f4f9d8d10e8165579c6f41a3bfe9066b2b46eb651eaea7a4"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/domain/vo/UserLoginVO.java",
+      "sha256": "e59c6a87ad0055af0e420036c6db91ce37855caa79762d1de07f07e853eef73f"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/enums/PayChannel.java",
+      "sha256": "01052e08b05fa59bc1843213c7f6df61e649dfe85c093587153f11bce38633d7"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/enums/PayStatus.java",
+      "sha256": "e84a67bf32ed5d3a8849116e5300d378da1f052dd62359094b4807bed816c73c"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/enums/PayType.java",
+      "sha256": "5e9abebd5de4e0a71de867bacc92629c3bcb4605504223e92ce18e8145156bfe"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/enums/UserStatus.java",
+      "sha256": "b472fe6a77d04e3b24a71dca55cd08910c885ccb60a23328bda03f0988acfa1d"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/interceptor/LoginInterceptor.java",
+      "sha256": "14356e1b2bdb541f509a6e6b1946c50755009896323dd373ab80774a17641c93"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/mapper/AddressMapper.java",
+      "sha256": "4b54f9408963b073b6c550d4a157b4bed106549c0fdf85ed121db9bf0734d885"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/mapper/CartMapper.java",
+      "sha256": "13bd1c76c668747772b4962f046e98a78f740d2c7f1947f3ec6669a4633a8eea"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/mapper/ItemMapper.java",
+      "sha256": "b561577ed7a49a273cf57ce5e229dddf7b2ffa807249a303fd544405cd4d6dab"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/mapper/OrderDetailMapper.java",
+      "sha256": "720bc2ddb97c120af05bc95d986c7701db28f8af6b6dd33b6d60cd58b2d79771"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/mapper/OrderLogisticsMapper.java",
+      "sha256": "8fdddad2bfff513d9d9d0c75b92947ec41f232f12584e1c96700b4220dfef9e1"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/mapper/OrderMapper.java",
+      "sha256": "e959f6055fc464433b85fac92eb61eac8c3ea3b5376d7d5c6c1f5634592aec0e"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/mapper/PayOrderMapper.java",
+      "sha256": "c4a7d1118212d9b302a86d6fe9ec2fa483c947947bb7914c4df75e8f107cbc81"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/mapper/UserMapper.java",
+      "sha256": "614e6d3222bbe1f23749ee9182010ccf0d1161fc35f88ce79a1fefa06ab04b55"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/service/IAddressService.java",
+      "sha256": "f0ae2b49c441d6797decb240e93363e22d3a720dedbb304ac064950c37466dd4"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/service/ICartService.java",
+      "sha256": "9173d0b414c8955edee8cd0b430b66ca259520000d0b88b520717ee03a867668"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/service/IItemService.java",
+      "sha256": "3df29b36df55831781c05f6fa4605a4ed8d9e9bdbc020d5596f4027445d45b34"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/service/IOrderDetailService.java",
+      "sha256": "6147e5622e61d7300ebe7e53ed7fb77872b926e71398be5e8760e9cd2769e811"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/service/IOrderLogisticsService.java",
+      "sha256": "610fbdc3cae196759541f89f5a60bd2b3d537389c0bc17570fc410155f2e9a91"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/service/IOrderService.java",
+      "sha256": "35c31a66f1c56d0db985c70115f6a29ba7bef75337592b63aeb9a60609134f89"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/service/IPayOrderService.java",
+      "sha256": "bd0f4495724e8c3d69985f962c7616c768bf4a4683b77ff00932cd0f2c9d1512"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/service/IUserService.java",
+      "sha256": "6c9cde1b4cf1b657cea45fe4395a77f21a4e9780635758296bf5094efe64b6f4"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/service/impl/AddressServiceImpl.java",
+      "sha256": "86e27cb7518fca2f25968ecd58b547f231d742f93b894f7eda8fd549c9a87053"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/service/impl/CartServiceImpl.java",
+      "sha256": "35e04f0c795d20f38ec18626da1eeae15fb271d85703507d9d6337a6b5750879"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/service/impl/ItemServiceImpl.java",
+      "sha256": "b521ed9fccb3488d268981fd942a6ef76dd5e6cc47fdca8fddd308dee24a204d"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/service/impl/OrderDetailServiceImpl.java",
+      "sha256": "611f77b7a30d6df7f0e4c559c327e8436803bcc47e55090bf4160e75fc48cab0"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/service/impl/OrderLogisticsServiceImpl.java",
+      "sha256": "aaa584147629a1a860f2dfef80675704d60d456e64989ccdb8ef9274d071e4f8"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/service/impl/OrderServiceImpl.java",
+      "sha256": "27a2546438495844bdb96c1de10d39a94e28c0a975f7308446ff9c8875c9e2ee"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/service/impl/PayOrderServiceImpl.java",
+      "sha256": "ec82ba4247e8c8e8db40908b9b7d239470ed696789f2a79c21dda88d3ed05bb0"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/service/impl/UserServiceImpl.java",
+      "sha256": "7e98099fdf16d08d66ca1f0bc8fbed4130f1d13d6deaffbb5267e4815188b5a2"
+    },
+    {
+      "path": "hm-service/src/main/java/com/hmall/utils/JwtTool.java",
+      "sha256": "2c2340798aad010306b59fef50cf9b530b77df75a9b548f2fde3511c5ef0774f"
+    },
+    {
+      "path": "hm-service/src/main/resources/mapper/CartMapper.xml",
+      "sha256": "11b758688dc68588034d812ecd28bf1c4bcab5079cc15bb6d6b752cb2b9846b9"
+    },
+    {
+      "path": "hm-service/src/main/resources/mapper/ItemMapper.xml",
+      "sha256": "f0cd44ca79a236af3af3db74e21e99a3dd0dd76194fa8dd98c243fa877bc5836"
+    },
+    {
+      "path": "hm-service/src/main/resources/mapper/OrderDetailMapper.xml",
+      "sha256": "f7ec708e242b10d409cd0bab399aec0b4652c60c57f8d86cf6bb91c4914ffb6f"
+    },
+    {
+      "path": "hm-service/src/main/resources/mapper/OrderLogisticsMapper.xml",
+      "sha256": "31811279a45cdcb1f745a7fcbca95234507a1e030c239280397613533453f00e"
+    },
+    {
+      "path": "hm-service/src/main/resources/mapper/OrderMapper.xml",
+      "sha256": "d83973f1845eaa79b7432f205a10d4229572426eeb1e93c6ea33db9f193b0f43"
+    },
+    {
+      "path": "hm-service/src/main/resources/mapper/PayOrderMapper.xml",
+      "sha256": "b839bba1f1618ef45a84e5fae3c6f250c8226565449e5614ae7fe6499f483f94"
+    },
+    {
+      "path": "hm-service/src/main/resources/mapper/TradeClient.xml",
+      "sha256": "45ec54134e7f94baf6f08dae3b882a92638f49fe311011a4e922ee60fe18cc95"
+    },
+    {
+      "path": "hm-service/src/main/resources/mapper/UserMapper.xml",
+      "sha256": "ab1fc22968199fac5bb2b7056fc2bb8c4d5ab0a55cc6a8b4a891e703f3a96664"
+    },
+    {
+      "path": "item-service/pom.xml",
+      "sha256": "07aa317dbee6517c93ef0e19b10594e24adb77bc7d7aa4221b77f9325ea4a5cf"
+    },
+    {
+      "path": "item-service/src/main/java/com/hmall/item/ItemApplication.java",
+      "sha256": "6e3e30370efd65cb5b80856018d1a038ceb526c9bec54b36132874e2596cf61b"
+    },
+    {
+      "path": "item-service/src/main/java/com/hmall/item/controller/ItemController.java",
+      "sha256": "b82b364cf72846f9b01c157fe56fbf37fa8edd13bc3594dbafef41a73dbd6f9a"
+    },
+    {
+      "path": "item-service/src/main/java/com/hmall/item/controller/SearchController.java",
+      "sha256": "3056fda66826ec38e2c60e0f2a3968848e7c929505926d856e37e4ba97905a2b"
+    },
+    {
+      "path": "item-service/src/main/java/com/hmall/item/domain/dto/ItemDTO.java",
+      "sha256": "d34e224f5c4cc206256b77b46142ee7319db9476c9bfb3fadcd1c88177f42be6"
+    },
+    {
+      "path": "item-service/src/main/java/com/hmall/item/domain/dto/OrderDetailDTO.java",
+      "sha256": "28deaa6c37d3c269b9e3d0c96af322b7f764a2418622a8995e3b52737ab19a4d"
+    },
+    {
+      "path": "item-service/src/main/java/com/hmall/item/domain/po/Item.java",
+      "sha256": "76f962b9b4b1e2f6c2bcedae28f24891ca72fdf8f55d7a971386892527d5bbba"
+    },
+    {
+      "path": "item-service/src/main/java/com/hmall/item/domain/po/ItemDoc.java",
+      "sha256": "7658e393fce8447538ed97aaa5edf2141be596c832bc6c38cee0e5f52af9d01a"
+    },
+    {
+      "path": "item-service/src/main/java/com/hmall/item/domain/query/ItemPageQuery.java",
+      "sha256": "7a2e848db83534edb11d748c0eb28f5a1124ae09a223e4b366721d4772023ce5"
+    },
+    {
+      "path": "item-service/src/main/java/com/hmall/item/es/DocumentTest.java",
+      "sha256": "ac899f6175260fa4a2518dfd9f7e0675e89bf7286c1a69113cd1fc9075be527c"
+    },
+    {
+      "path": "item-service/src/main/java/com/hmall/item/es/IndexTest.java",
+      "sha256": "05fba26a8614b6dca22cbf6d8044c5f220bf7778780bdf6aaf6226b9b97d803d"
+    },
+    {
+      "path": "item-service/src/main/java/com/hmall/item/mapper/ItemMapper.java",
+      "sha256": "a724c346d7ec08d22bac19c06711eb320c129d40de664c5a721d1cca2d997f69"
+    },
+    {
+      "path": "item-service/src/main/java/com/hmall/item/service/IItemService.java",
+      "sha256": "2916ad30190ffa98d83c66c77b2798c2f490008a19e31b2a0b40d50e20fd30a6"
+    },
+    {
+      "path": "item-service/src/main/java/com/hmall/item/service/impl/ItemServiceImpl.java",
+      "sha256": "60c0b236c111fff61bc165ed6da51d827473bf8ae5df68fcba98a1008374db15"
+    },
+    {
+      "path": "pay-service/pom.xml",
+      "sha256": "ccfe8d1e6200398c512082c7a7ac367db1861fc081f3bf193481284ea7609689"
+    },
+    {
+      "path": "pay-service/src/main/java/com/hmall/pay/PayApplication.java",
+      "sha256": "0309e99807a4c35cc48015a38e1405b4a91f324d4a83967003e057dc081e8774"
+    },
+    {
+      "path": "pay-service/src/main/java/com/hmall/pay/controller/PayController.java",
+      "sha256": "fffe8230dd2e469472770f7593962039a3c064388d58eccedc5d6ec1628a5717"
+    },
+    {
+      "path": "pay-service/src/main/java/com/hmall/pay/domain/dto/PayApplyDTO.java",
+      "sha256": "536808eb8a057cf90b3207427a58ee205c42df514975695129c1c128a4b3c87c"
+    },
+    {
+      "path": "pay-service/src/main/java/com/hmall/pay/domain/dto/PayOrderFormDTO.java",
+      "sha256": "bd066d0588a81fadc1e598380d89424fdb9366ab7d7afd8ebef06c730c7da1cf"
+    },
+    {
+      "path": "pay-service/src/main/java/com/hmall/pay/domain/po/PayOrder.java",
+      "sha256": "a179a953dc45fbcf314aa25becbdd8da722927f536dedb9fd93dfa6bddfcadd9"
+    },
+    {
+      "path": "pay-service/src/main/java/com/hmall/pay/domain/vo/PayOrderVO.java",
+      "sha256": "272da43464ccea1794258c60a7c9fe11ec3decdf871c021c79d625505d1925ab"
+    },
+    {
+      "path": "pay-service/src/main/java/com/hmall/pay/enums/PayStatus.java",
+      "sha256": "9d7dcb1c775c7da54c53cc28f5537a0c0c8f46e37f069a09f0658198e1749409"
+    },
+    {
+      "path": "pay-service/src/main/java/com/hmall/pay/enums/PayType.java",
+      "sha256": "78497b75de0787b8e671d87a276d55ae24f434f8b69a7afc8f8fba7ac5941f3a"
+    },
+    {
+      "path": "pay-service/src/main/java/com/hmall/pay/mapper/PayOrderMapper.java",
+      "sha256": "60fd1721ae174ce9b7f12c85917ce1e1de78d7afb182a3eb4f1e463d2c0043e3"
+    },
+    {
+      "path": "pay-service/src/main/java/com/hmall/pay/service/IPayOrderService.java",
+      "sha256": "5ed3e0f61d395bde391bcefc80cde4b3249f0985c5a8798e407fd9e36284d66f"
+    },
+    {
+      "path": "pay-service/src/main/java/com/hmall/pay/service/impl/PayOrderServiceImpl.java",
+      "sha256": "5d5e84233f19099c7ed59ea214d09f15b3eba46b8e7eae762ff666e94291c237"
+    },
+    {
+      "path": "pom.xml",
+      "sha256": "0333865b4a8b968eda68299e753dafc943e7879d34536f48810deb43f4eb1d84"
+    },
+    {
+      "path": "trade-service/pom.xml",
+      "sha256": "b0fc97d53ea0c41f64d7f4784fdfc591b42d1f1d472276478d37c430f885f026"
+    },
+    {
+      "path": "trade-service/src/main/java/com/hmall/trade/TradeApplication.java",
+      "sha256": "e9f7da25ee89714ba58cf23ae3cc52bde233cbc9213b09554279270328429af3"
+    },
+    {
+      "path": "trade-service/src/main/java/com/hmall/trade/controller/OrderController.java",
+      "sha256": "14d8801d37adb7ad7449c5aa5ac03740a9a4b925442d3b294946112af307c820"
+    },
+    {
+      "path": "trade-service/src/main/java/com/hmall/trade/domain/dto/OrderDetailDTO.java",
+      "sha256": "0cca1f1b86c136db97d4509024b4a29af6ab52fc0fd033e86f897e0b785d75d5"
+    },
+    {
+      "path": "trade-service/src/main/java/com/hmall/trade/domain/dto/OrderFormDTO.java",
+      "sha256": "974ed0e78bf7867c8407e5b11f3d19d97b70824519b5b6aa1efbf86c2e95911c"
+    },
+    {
+      "path": "trade-service/src/main/java/com/hmall/trade/domain/po/Order.java",
+      "sha256": "2c0696815c199d41b32b0cbdd272d8c029a1dfd515b0ca0b2c4fe23a101c33a5"
+    },
+    {
+      "path": "trade-service/src/main/java/com/hmall/trade/domain/po/OrderDetail.java",
+      "sha256": "a3d434e44d38d94e4128635ed4fc91607f563531157fa863829b99d32f9c0728"
+    },
+    {
+      "path": "trade-service/src/main/java/com/hmall/trade/domain/vo/OrderVO.java",
+      "sha256": "65ad59926a78684a3802486c508f3dfe21a975a423163a403c7ab6fd52f2c858"
+    },
+    {
+      "path": "trade-service/src/main/java/com/hmall/trade/mapper/OrderDetailMapper.java",
+      "sha256": "8242b335f8bde7e62ac3bd2f9b6efa8b052b1056be470e68ea016e54ac4cae2d"
+    },
+    {
+      "path": "trade-service/src/main/java/com/hmall/trade/mapper/OrderMapper.java",
+      "sha256": "83e8c8ecd4b3a658b6227127e4e1afe6fe0e3c9ed2e00597e92320d1ea6669b9"
+    },
+    {
+      "path": "trade-service/src/main/java/com/hmall/trade/service/IOrderDetailService.java",
+      "sha256": "85b5bee95dcbbc8b68755463871e307616d20240fb09ab4c1ec4c17559a3b90d"
+    },
+    {
+      "path": "trade-service/src/main/java/com/hmall/trade/service/IOrderService.java",
+      "sha256": "6dc21d19f98cfd09f375dee511a79b918177e7b8aeba73b7851761ba57c2e7a8"
+    },
+    {
+      "path": "trade-service/src/main/java/com/hmall/trade/service/impl/OrderDetailServiceImpl.java",
+      "sha256": "026b020ab8a78611c759b1ba0f8146fcd491737ed05bd80a592cda6a091fc455"
+    },
+    {
+      "path": "trade-service/src/main/java/com/hmall/trade/service/impl/OrderServiceImpl.java",
+      "sha256": "db76bbeac9d05d821b29953c6f92701c4c906f2fba162190c19bba1121dda6d9"
+    },
+    {
+      "path": "user-service/pom.xml",
+      "sha256": "f27f5cdc2820035cd6f340ded66b1e6e17e7e41a95e2fe3be96026f12a3c495a"
+    },
+    {
+      "path": "user-service/src/main/java/com/hmall/user/UserApplication.java",
+      "sha256": "8ebc9f32475a1855ef76809bc552048fb0353f2b0ae674501f85b0191c5c80d6"
+    },
+    {
+      "path": "user-service/src/main/java/com/hmall/user/config/AuthProperties.java",
+      "sha256": "4b5c3f20b2f6568fcf0ef8c469b186bf5e0f7fd0d08a4e428db6bacfe05a6487"
+    },
+    {
+      "path": "user-service/src/main/java/com/hmall/user/config/JwtProperties.java",
+      "sha256": "f5c6d7311ae55dc43764251a3ae79cc36fce13a9b1cc18442ff3bcf9e9e5e0ba"
+    },
+    {
+      "path": "user-service/src/main/java/com/hmall/user/config/SecurityConfig.java",
+      "sha256": "8cb923568ec52b476ef75566dcbc14149deea3fd5df3c5fac7a831943e82d189"
+    },
+    {
+      "path": "user-service/src/main/java/com/hmall/user/controller/UserController.java",
+      "sha256": "cc92cea90302c4f6c8e3d1560d45ae601e50e0b49fbd62961cffbdeaf2c6b901"
+    },
+    {
+      "path": "user-service/src/main/java/com/hmall/user/domain/dto/LoginFormDTO.java",
+      "sha256": "cd6c0d05a491f561eef1d88e78a4b7d7eca386d7e7f44277a3dfd12dcbab2a61"
+    },
+    {
+      "path": "user-service/src/main/java/com/hmall/user/domain/po/User.java",
+      "sha256": "24cee3da3ca947ec0f0f46ece329975333b00dc93452d55d7346981590a52e8b"
+    },
+    {
+      "path": "user-service/src/main/java/com/hmall/user/domain/vo/UserLoginVO.java",
+      "sha256": "d3e0e54701d57cf82853b81c1581ebe5634b6979704a96715536745a51855cab"
+    },
+    {
+      "path": "user-service/src/main/java/com/hmall/user/enums/UserStatus.java",
+      "sha256": "2f7336337549a4c01a5f4549f251b2cba1ca1a04711a0d97d2081a72f2007d6c"
+    },
+    {
+      "path": "user-service/src/main/java/com/hmall/user/interceptor/LoginInterceptor.java",
+      "sha256": "d5a1b138e3f7535065ba18ec2c50e43bc2657267c6231784a3dfe417eb8d910e"
+    },
+    {
+      "path": "user-service/src/main/java/com/hmall/user/mapper/UserMapper.java",
+      "sha256": "cacc7b7bc79534eff15ec9c83fe8d1f379e1b936ca7c2a21290394e9df027af6"
+    },
+    {
+      "path": "user-service/src/main/java/com/hmall/user/service/IUserService.java",
+      "sha256": "ec75cabd70e284d78dd73abcf891e496c1448b168756eec80aa91a77e7f83a49"
+    },
+    {
+      "path": "user-service/src/main/java/com/hmall/user/service/impl/UserServiceImpl.java",
+      "sha256": "fd55de967431d7382191203084e09caf55d445880a60da4c2ec37cc186ff1989"
+    },
+    {
+      "path": "user-service/src/main/java/com/hmall/user/utils/JwtTool.java",
+      "sha256": "9ce1b318ae70bdea296c08dc4712c7d44c88647bee936831a2198a961ec2c78b"
+    }
+  ],
+  "excluded": []
+}

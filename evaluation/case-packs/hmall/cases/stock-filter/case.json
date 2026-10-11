@@ -1,0 +1,63 @@
+{
+  "id": "hmall-stock-filter",
+  "version": 1,
+  "category": "small-feature",
+  "snapshot": "snapshots/search-base-v1/manifest.json",
+  "prompt": "cases/stock-filter/prompt.md",
+  "steps": [
+    {
+      "id": "step-1",
+      "session": "main",
+      "prompt": "cases/stock-filter/prompt.md"
+    }
+  ],
+  "approvalRules": [
+    {
+      "operations": [
+        "WRITE",
+        "EDIT",
+        "MOVE"
+      ],
+      "include": [
+        "*/src/main/java/**/*.java"
+      ],
+      "exclude": [
+        "hm-service/**"
+      ]
+    },
+    {
+      "operations": [
+        "MKDIR"
+      ],
+      "include": [
+        "*/src/main/java",
+        "*/src/main/java/**"
+      ],
+      "exclude": [
+        "hm-service/**"
+      ]
+    }
+  ],
+  "manualChecks": [],
+  "verifier": {
+    "command": [
+      "powershell.exe",
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      "${pack}/cases/price-filter/verifier/verify.ps1",
+      "-Workspace",
+      "${workspace}",
+      "-OutputDirectory",
+      "${output}",
+      "-CaseDefinition",
+      "${pack}/cases/stock-filter/case.json",
+      "-AcceptanceProfile",
+      "${pack}/cases/stock-filter/acceptance.json"
+    ],
+    "workingDirectory": ".",
+    "timeoutSeconds": 600
+  }
+}

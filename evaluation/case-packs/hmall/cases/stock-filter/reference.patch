@@ -1,0 +1,21 @@
+diff --git a/item-service/src/main/java/com/hmall/item/domain/query/ItemPageQuery.java b/item-service/src/main/java/com/hmall/item/domain/query/ItemPageQuery.java
+--- a/item-service/src/main/java/com/hmall/item/domain/query/ItemPageQuery.java
++++ b/item-service/src/main/java/com/hmall/item/domain/query/ItemPageQuery.java
+@@ -20,4 +20,6 @@
+     private Integer minPrice;
+     @ApiModelProperty("价格最大值")
+     private Integer maxPrice;
++    @ApiModelProperty("Only return positive-stock items when true")
++    private Boolean onlyInStock;
+ }
+diff --git a/item-service/src/main/java/com/hmall/item/controller/SearchController.java b/item-service/src/main/java/com/hmall/item/controller/SearchController.java
+--- a/item-service/src/main/java/com/hmall/item/controller/SearchController.java
++++ b/item-service/src/main/java/com/hmall/item/controller/SearchController.java
+@@ -34,6 +34,7 @@
+                 .eq(Item::getStatus, 1)
+                 .ge(query.getMinPrice() != null, Item::getPrice, query.getMinPrice())
+                 .le(query.getMaxPrice() != null, Item::getPrice, query.getMaxPrice())
++                .gt(Boolean.TRUE.equals(query.getOnlyInStock()), Item::getStock, 0)
+                 .page(query.toMpPage("update_time", false));
+         // 封装并返回
+         return PageDTO.of(result, ItemDTO.class);

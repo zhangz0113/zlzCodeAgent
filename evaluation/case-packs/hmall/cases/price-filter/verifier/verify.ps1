@@ -1,6 +1,9 @@
 param(
     [Parameter(Mandatory = $true)][string]$Workspace,
-    [Parameter(Mandatory = $true)][string]$OutputDirectory
+    [Parameter(Mandatory = $true)][string]$OutputDirectory,
+    [string]$CaseDefinition,
+    [string]$AcceptanceProfile,
+    [string]$EvidenceManifest
 )
 $ErrorActionPreference = 'Stop'
 $outputRoot = (Resolve-Path -LiteralPath $OutputDirectory).Path
@@ -14,7 +17,9 @@ function Save-Result($Status, $Checks, $Evidence, $Message) {
 try {
     $sourceRoot = (Resolve-Path -LiteralPath $Workspace).Path.TrimEnd('\', '/')
     $packRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../../..')).Path
-    $case = Get-Content -LiteralPath (Join-Path $PSScriptRoot '../case.json') -Raw | ConvertFrom-Json
+    $casePath = if ($CaseDefinition) { $CaseDefinition } else { Join-Path $PSScriptRoot '../case.json' }
+    $case = Get-Content -LiteralPath $casePath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $profile = if ($AcceptanceProfile) { Get-Content -LiteralPath $AcceptanceProfile -Raw -Encoding UTF8 | ConvertFrom-Json } else { $null }
     $manifestPath = Join-Path $packRoot $case.snapshot
     $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
     $baseline = @{}
@@ -65,6 +70,16 @@ try {
     foreach ($name in 'schema.sql','data.sql') {
         Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination (Join-Path $testResources $name)
     }
+    # Background: new search tasks share the existing price regression and local H2 assembly.
+    # Intent: trusted profiles add tests and fixture updates, leaving the legacy invocation unchanged.
+    # Constraint: never obtain profiles from candidate source; otherwise the candidate could select its own passing checks.
+    if ($profile) {
+        foreach ($name in $profile.testSources) {
+            Copy-Item -LiteralPath (Join-Path $packRoot $name) -Destination (Join-Path $testJava (Split-Path $name -Leaf))
+        }
+        $dataPath = Join-Path $testResources 'data.sql'
+        [IO.File]::AppendAllText($dataPath, "`n" + [IO.File]::ReadAllText((Join-Path $packRoot $profile.additionalData)), $utf8)
+    }
     $itemPom = Join-Path $buildRoot 'item-service/pom.xml'
     [xml]$pom = [IO.File]::ReadAllText($itemPom)
     $ns = [Xml.XmlNamespaceManager]::new($pom.NameTable)
@@ -80,8 +95,10 @@ try {
     $pom.Save($itemPom)
     $rootPom = Join-Path $buildRoot 'pom.xml'
     $log = Join-Path $outputRoot 'maven.log'
+    $testClasses = @('HmallPriceFilterAcceptanceTest')
+    if ($profile) { $testClasses += @($profile.testClasses) }
     $mavenArguments = @('-B','-ntp','-f',$rootPom,'-pl','item-service','-am','test',
-        '-Dtest=HmallPriceFilterAcceptanceTest','-Dsurefire.failIfNoSpecifiedTests=false','-Dfile.encoding=UTF-8')
+        ('-Dtest=' + ($testClasses -join ',')),'-Dsurefire.failIfNoSpecifiedTests=false','-Dfile.encoding=UTF-8')
     [IO.File]::WriteAllText((Join-Path $outputRoot 'environment.json'), ([ordered]@{
         javaHome = $javaHome; mavenWrapper = $mavenWrapper; arguments = $mavenArguments; h2Version = '2.1.214'
     } | ConvertTo-Json -Depth 5), $utf8)
@@ -91,8 +108,8 @@ try {
     try { & $mavenWrapper @mavenArguments *> $log; $mavenExit = $LASTEXITCODE }
     finally { Pop-Location; $ErrorActionPreference = $previousPreference }
 
-    $reportFile = Join-Path $buildRoot 'item-service/target/surefire-reports/TEST-com.hmall.evaluation.HmallPriceFilterAcceptanceTest.xml'
-    if (-not (Test-Path -LiteralPath $reportFile)) {
+    $reportFiles = @($testClasses | ForEach-Object { Join-Path $buildRoot "item-service/target/surefire-reports/TEST-com.hmall.evaluation.$_.xml" })
+    if (@($reportFiles | Where-Object { -not (Test-Path -LiteralPath $_) }).Count) {
         $mavenText = Get-Content -LiteralPath $log -Raw
         if ($mavenText -match 'COMPILATION ERROR') {
             Save-Result 'FAIL' @([ordered]@{ id = 'compilation'; passed = $false; detail = 'Candidate Java compilation failed; see maven.log' }) @('maven.log','environment.json') $null
@@ -101,10 +118,14 @@ try {
         }
         exit 0
     }
-    Copy-Item -LiteralPath $reportFile -Destination (Join-Path $outputRoot 'tests.xml')
-    [xml]$report = [IO.File]::ReadAllText($reportFile)
     $checks = [Collections.Generic.List[object]]::new()
     $infrastructureError = $false
+    $evidenceFiles = @('maven.log','environment.json')
+    foreach ($reportFile in $reportFiles) {
+    $reportName = if ($profile) { Split-Path $reportFile -Leaf } else { 'tests.xml' }
+    Copy-Item -LiteralPath $reportFile -Destination (Join-Path $outputRoot $reportName)
+    $evidenceFiles += $reportName
+    [xml]$report = [IO.File]::ReadAllText($reportFile)
     foreach ($test in $report.testsuite.testcase) {
         $failure = $test.SelectSingleNode('failure')
         $testError = $test.SelectSingleNode('error')
@@ -115,9 +136,24 @@ try {
         $detail = if ($failure) { $failure.GetAttribute('message') } elseif ($testError) { $testError.GetAttribute('message') } elseif ($skipped) { 'Required check skipped' } else { 'Passed' }
         $checks.Add([ordered]@{ id = [string]$test.name; passed = [bool]$passed; detail = $detail })
     }
-    $status = if ($checks.Count -ne 10 -or $infrastructureError) { 'ERROR' } elseif (@($checks | Where-Object { -not $_.passed }).Count) { 'FAIL' } elseif ($mavenExit -ne 0) { 'ERROR' } else { 'PASS' }
+    }
+    $complete = $checks.Count -eq 10
+    if ($profile) {
+        $required = @($profile.requiredTestIds)
+        $complete = $checks.Count -eq $required.Count -and @($required | Where-Object { $_ -notin $checks.id }).Count -eq 0
+        if ($profile.scenario) {
+            $scenarioOutput = Join-Path $outputRoot 'scenario'
+            New-Item -ItemType Directory -Path $scenarioOutput | Out-Null
+            & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $packRoot 'verifiers/verify-evidence.ps1') -Workspace $Workspace -OutputDirectory $scenarioOutput -CaseDefinition $casePath -EvidenceManifest $EvidenceManifest -Kind $profile.scenario
+            $scenario = Get-Content -LiteralPath (Join-Path $scenarioOutput 'result.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+            foreach ($check in $scenario.checks) { $checks.Add($check) }
+            if ($scenario.status -eq 'ERROR') { $infrastructureError = $true }
+            $evidenceFiles += 'scenario/result.json','scenario/mechanism-evidence.json'
+        }
+    }
+    $status = if (-not $complete -or $infrastructureError) { 'ERROR' } elseif (@($checks | Where-Object { -not $_.passed }).Count) { 'FAIL' } elseif ($mavenExit -ne 0) { 'ERROR' } else { 'PASS' }
     $message = if ($status -eq 'ERROR') { 'Verifier did not complete all required checks in a valid environment; inspect evidence' } else { $null }
-    Save-Result $status $checks.ToArray() @('maven.log','tests.xml','environment.json') $message
+    Save-Result $status $checks.ToArray() $evidenceFiles $message
     exit 0
 } catch {
     Save-Result 'ERROR' @() @() $_.Exception.Message

@@ -1,0 +1,6 @@
+{
+  "codeagent.context.context-window-tokens": "16384",
+  "codeagent.context.reserved-output-tokens": "2048",
+  "codeagent.context.summary-max-output-tokens": "4096",
+  "codeagent.context.minimum-retained-turns": "2"
+}

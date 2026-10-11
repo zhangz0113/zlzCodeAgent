@@ -1,0 +1,36 @@
+{
+  "testSources": [
+    "verifiers/search/HmallStockFilterAcceptanceTest.java",
+    "verifiers/search/HmallSearchMultiturnAcceptanceTest.java"
+  ],
+  "testClasses": [
+    "HmallSearchMultiturnAcceptanceTest"
+  ],
+  "additionalData": "verifiers/search/stock-sold-data.sql",
+  "requiredTestIds": [
+    "V1_lowerOnly",
+    "V2_upperOnly",
+    "V3_inclusiveBounds",
+    "V4_noPriceLimit",
+    "V5_keyword",
+    "V6_brand",
+    "V7_category",
+    "V8_combined",
+    "V9_defaultPagination",
+    "V10_explicitOrder",
+    "S1_onlyPositiveStock",
+    "S2_falseCompatible",
+    "S3_absentCompatible",
+    "S4_combinedFilters",
+    "S5_filteredPagination",
+    "S6_explicitOrder",
+    "M1_inclusiveSold",
+    "M2_bothParameters",
+    "M3_soldWithoutStock",
+    "M4_zeroSold",
+    "M5_combinedOriginalFilters",
+    "M6_salesPagination",
+    "M7_combinedExplicitOrder"
+  ],
+  "scenario": "search-multiturn"
+}
