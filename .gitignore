@@ -54,6 +54,7 @@ runs
 # Local runtime state
 /sessions/
 /workspaces/
+/approvals/
 
 # Operating system files
 .DS_Store
