@@ -3,6 +3,8 @@ package com.zlzcode.codeagent.evaluation.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zlzcode.codeagent.evaluation.model.EvaluationCase;
 import com.zlzcode.codeagent.evaluation.model.EvaluationSuite;
+import com.zlzcode.codeagent.evaluation.model.EvaluationRun.StepInput;
+import com.zlzcode.codeagent.tool.model.MutationOperation;
 import com.zlzcode.codeagent.evaluation.model.PreparedEvaluation.SnapshotManifest;
 
 import java.io.IOException;
@@ -23,25 +25,56 @@ public final class CaseCatalogService {
         Path root = pack.toRealPath();
         Path definitionPath = resolve(root, caseFile);
         EvaluationCase definition = mapper.readValue(definitionPath.toFile(), EvaluationCase.class);
-        requireText(definition.id(), "case id");
+        requireId(definition.id(), "case id");
         requireText(definition.category(), "case category");
         if (definition.version() < 1) throw new IOException("Case version must be positive");
-        if (definition.verifier() == null || definition.verifier().command().isEmpty()
-                || definition.verifier().timeoutSeconds() < 1) {
-            throw new IOException("Case requires a verifier command and positive timeout");
+        if (definition.verifier() == null && definition.manualChecks().isEmpty()) {
+            throw new IOException("Case requires a verifier or manual checks");
         }
-        for (String argument : definition.verifier().command()) requireText(argument, "verifier argument");
-        Path workingDirectory = resolve(root, definition.verifier().workingDirectory());
-        if (!Files.isDirectory(workingDirectory)) throw new IOException("Verifier working directory is not a directory");
+        if (definition.verifier() != null) {
+            if (definition.verifier().command().isEmpty() || definition.verifier().timeoutSeconds() < 1) {
+                throw new IOException("Case requires a verifier command and positive timeout");
+            }
+            for (String argument : definition.verifier().command()) requireText(argument, "verifier argument");
+            Path workingDirectory = resolve(root, definition.verifier().workingDirectory());
+            if (!Files.isDirectory(workingDirectory)) throw new IOException("Verifier working directory is not a directory");
+        }
         String prompt = Files.readString(resolve(root, definition.prompt()));
         requireText(prompt, "prompt");
+        List<StepInput> steps = new ArrayList<>();
+        HashSet<String> stepIds = new HashSet<>();
+        for (EvaluationCase.Step step : definition.steps()) {
+            requireId(step.id(), "step id");
+            requireId(step.session(), "session alias");
+            if (!stepIds.add(step.id())) throw new IOException("Duplicate step id: " + step.id());
+            String input = Files.readString(resolve(root, step.prompt()));
+            requireText(input, "step prompt");
+            if (input.length() > 20_000) throw new IOException("Step prompt exceeds runtime limit");
+            steps.add(new StepInput(step.id(), step.session(), input));
+        }
+        if (steps.isEmpty()) {
+            if (prompt.length() > 20_000) throw new IOException("Prompt exceeds runtime limit");
+            steps.add(new StepInput("main", "main", prompt));
+        }
+        HashSet<String> checkIds = new HashSet<>();
+        for (EvaluationCase.ManualCheck check : definition.manualChecks()) {
+            requireId(check.id(), "manual check id");
+            requireText(check.instruction(), "manual check instruction");
+            if (!checkIds.add(check.id())) throw new IOException("Duplicate manual check id");
+        }
+        for (EvaluationCase.ApprovalRule rule : definition.approvalRules()) {
+            if (rule.operations().isEmpty() || rule.include().isEmpty()) throw new IOException("Approval rule requires operations and include patterns");
+            for (String operation : rule.operations()) MutationOperation.valueOf(operation);
+            for (String pattern : rule.include()) requireText(pattern, "include pattern");
+            for (String pattern : rule.exclude()) requireText(pattern, "exclude pattern");
+        }
         Path manifestPath = resolve(root, definition.snapshot());
         SnapshotManifest manifest = mapper.readValue(manifestPath.toFile(), SnapshotManifest.class);
         requireText(manifest.snapshotId(), "snapshot id");
         if (manifest.files().isEmpty()) throw new IOException("Snapshot contains no files");
         Path source = resolve(root, root.relativize(manifestPath.getParent().resolve("workspace")).toString());
         if (!Files.isDirectory(source)) throw new IOException("Snapshot workspace is not a directory");
-        return new LoadedCase(root, definition, prompt, manifest, source);
+        return new LoadedCase(root, definition, prompt, manifest, source, List.copyOf(steps));
     }
 
     public InspectedSuite inspect(Path pack, String suiteFile) throws IOException {
@@ -81,8 +114,13 @@ public final class CaseCatalogService {
         if (text == null || text.isBlank()) throw new IOException("Missing " + label);
     }
 
+    private static void requireId(String text, String label) throws IOException {
+        requireText(text, label);
+        if (!text.matches("[A-Za-z0-9][A-Za-z0-9_-]{0,127}")) throw new IOException("Invalid " + label);
+    }
+
     public record LoadedCase(Path pack, EvaluationCase definition, String prompt,
-                             SnapshotManifest manifest, Path source) {
+                             SnapshotManifest manifest, Path source, List<StepInput> steps) {
     }
 
     public record InspectedSuite(EvaluationSuite suite, List<EvaluationCase> cases) {

@@ -1,0 +1,44 @@
+{
+  "id": "hmall-tool-payload",
+  "version": 1,
+  "category": "multi-turn-context",
+  "snapshot": "snapshots/tool-payload-v1/manifest.json",
+  "prompt": "cases/tool-payload/step-1.md",
+  "steps": [
+    {
+      "id": "step-1",
+      "session": "main",
+      "prompt": "cases/tool-payload/step-1.md"
+    },
+    {
+      "id": "step-2",
+      "session": "main",
+      "prompt": "cases/tool-payload/step-2.md"
+    }
+  ],
+  "approvalRules": [],
+  "manualChecks": [],
+  "verifier": {
+    "command": [
+      "powershell.exe",
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      "${pack}/verifiers/verify-evidence.ps1",
+      "-Workspace",
+      "${workspace}",
+      "-OutputDirectory",
+      "${output}",
+      "-CaseDefinition",
+      "${pack}/cases/tool-payload/case.json",
+      "-EvidenceManifest",
+      "${evidence}",
+      "-Kind",
+      "tool-payload"
+    ],
+    "workingDirectory": ".",
+    "timeoutSeconds": 30
+  }
+}

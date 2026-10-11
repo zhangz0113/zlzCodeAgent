@@ -1,0 +1,17 @@
+{
+  "paths": [
+    "cart-service/src/main/java/com/hmall/cart/controller/CartController.java",
+    "cart-service/src/main/java/com/hmall/cart/service/impl/CartServiceImpl.java",
+    "hm-api/src/main/java/com/hmall/api/client/ItemClient.java",
+    "item-service/src/main/java/com/hmall/item/controller/ItemController.java",
+    "item-service/src/main/java/com/hmall/item/service/impl/ItemServiceImpl.java"
+  ],
+  "symbols": [
+    "queryMyCarts",
+    "handleCartItems",
+    "queryItemByIds",
+    "newPrice",
+    "stock",
+    "status"
+  ]
+}

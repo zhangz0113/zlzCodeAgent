@@ -1,0 +1,52 @@
+{
+  "id": "hmall-cart-location",
+  "version": 1,
+  "category": "code-understanding",
+  "snapshot": "snapshots/price-filter-v1/manifest.json",
+  "prompt": "cases/cart-location/prompt.md",
+  "steps": [
+    {
+      "id": "step-1",
+      "session": "main",
+      "prompt": "cases/cart-location/prompt.md"
+    }
+  ],
+  "approvalRules": [],
+  "manualChecks": [
+    {
+      "id": "data-flow",
+      "instruction": "核对最新价格、库存、状态来自商品批量查询，说明本地购物车与远程商品数据的关系。"
+    },
+    {
+      "id": "call-chain",
+      "instruction": "核对真实微服务调用链和文件符号，不能误指 hm-service 单体。"
+    },
+    {
+      "id": "honest-evidence",
+      "instruction": "只读源码分析不得声称已运行或联调微服务。"
+    }
+  ],
+  "verifier": {
+    "command": [
+      "powershell.exe",
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      "${pack}/verifiers/verify-evidence.ps1",
+      "-Workspace",
+      "${workspace}",
+      "-OutputDirectory",
+      "${output}",
+      "-CaseDefinition",
+      "${pack}/cases/cart-location/case.json",
+      "-EvidenceManifest",
+      "${evidence}",
+      "-Kind",
+      "cart-location"
+    ],
+    "workingDirectory": ".",
+    "timeoutSeconds": 30
+  }
+}

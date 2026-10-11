@@ -1,0 +1,18 @@
+{
+  "id": "hmall-price-filter",
+  "version": 2,
+  "category": "bug-fix",
+  "snapshot": "snapshots/price-filter-v1/manifest.json",
+  "prompt": "cases/price-filter/prompt.md",
+  "steps": [ { "id": "repair", "session": "main", "prompt": "cases/price-filter/prompt.md" } ],
+  "approvalRules": [
+    { "operations": ["WRITE", "EDIT", "MOVE"], "include": ["*/src/main/java/**/*.java"], "exclude": ["hm-service/**"] },
+    { "operations": ["MKDIR"], "include": ["*/src/main/java", "*/src/main/java/**"], "exclude": ["hm-service/**"] }
+  ],
+  "manualChecks": [],
+  "verifier": {
+    "command": ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", "${pack}/cases/price-filter/verifier/verify.ps1", "-Workspace", "${workspace}", "-OutputDirectory", "${output}"],
+    "workingDirectory": "cases/price-filter/verifier",
+    "timeoutSeconds": 600
+  }
+}

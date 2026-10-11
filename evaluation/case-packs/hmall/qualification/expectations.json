@@ -1,0 +1,162 @@
+{
+  "business": [
+    {
+      "case": "stock-filter",
+      "variant": "baseline",
+      "status": "FAIL",
+      "failedCheck": "S1_onlyPositiveStock"
+    },
+    {
+      "case": "stock-filter",
+      "variant": "reference",
+      "status": "PASS",
+      "failedCheck": null
+    },
+    {
+      "case": "stock-filter",
+      "variant": "wrong-default",
+      "status": "FAIL",
+      "failedCheck": "S3_absentCompatible"
+    },
+    {
+      "case": "stock-filter",
+      "variant": "wrong-pagination",
+      "status": "FAIL",
+      "failedCheck": "S5_filteredPagination"
+    },
+    {
+      "case": "search-multiturn",
+      "variant": "baseline",
+      "status": "FAIL",
+      "failedCheck": "S1_onlyPositiveStock"
+    },
+    {
+      "case": "search-multiturn",
+      "variant": "reference",
+      "status": "PASS",
+      "failedCheck": null
+    },
+    {
+      "case": "search-multiturn",
+      "variant": "wrong-default",
+      "status": "FAIL",
+      "failedCheck": "S3_absentCompatible"
+    },
+    {
+      "case": "search-multiturn",
+      "variant": "wrong-pagination",
+      "status": "FAIL",
+      "failedCheck": "S5_filteredPagination"
+    },
+    {
+      "case": "search-multiturn",
+      "variant": "forgot-stock",
+      "status": "FAIL",
+      "failedCheck": "S1_onlyPositiveStock"
+    }
+  ],
+  "evidence": [
+    {
+      "case": "cart-location",
+      "variant": "good",
+      "status": "PASS",
+      "failedCheck": null
+    },
+    {
+      "case": "cart-location",
+      "variant": "wrong-location",
+      "status": "FAIL",
+      "failedCheck": "location-CartController"
+    },
+    {
+      "case": "search-multiturn",
+      "variant": "good",
+      "status": "PASS",
+      "failedCheck": null
+    },
+    {
+      "case": "tool-payload",
+      "variant": "good",
+      "status": "PASS",
+      "failedCheck": null
+    },
+    {
+      "case": "tool-payload",
+      "variant": "visible-target",
+      "status": "FAIL",
+      "failedCheck": "target-hidden"
+    },
+    {
+      "case": "tool-payload",
+      "variant": "missing-retrieval",
+      "status": "FAIL",
+      "failedCheck": "matching-retrieval"
+    },
+    {
+      "case": "tool-payload",
+      "variant": "wrong-reference",
+      "status": "FAIL",
+      "failedCheck": "matching-retrieval"
+    },
+    {
+      "case": "tool-payload",
+      "variant": "wrong-answer",
+      "status": "FAIL",
+      "failedCheck": "correct-answer"
+    },
+    {
+      "case": "history-compaction",
+      "variant": "good",
+      "status": "PASS",
+      "failedCheck": null
+    },
+    {
+      "case": "history-compaction",
+      "variant": "uncovered-first",
+      "status": "FAIL",
+      "failedCheck": "checkpoint-covers-first"
+    },
+    {
+      "case": "history-compaction",
+      "variant": "lost-marker",
+      "status": "FAIL",
+      "failedCheck": "final-marker"
+    },
+    {
+      "case": "session-memory",
+      "variant": "good",
+      "status": "PASS",
+      "failedCheck": null
+    },
+    {
+      "case": "session-memory",
+      "variant": "wrong-provenance",
+      "status": "FAIL",
+      "failedCheck": "learned-with-provenance"
+    },
+    {
+      "case": "session-memory",
+      "variant": "missing-memory",
+      "status": "FAIL",
+      "failedCheck": "learned-with-provenance"
+    },
+    {
+      "case": "session-memory",
+      "variant": "missing-format",
+      "status": "FAIL",
+      "failedCheck": "learned-table-format"
+    },
+    {
+      "case": "session-memory",
+      "variant": "imported-turn",
+      "status": "FAIL",
+      "failedCheck": "no-imported-turns"
+    },
+    {
+      "case": "history-compaction",
+      "variant": "failed-after-checkpoint",
+      "status": "FAIL",
+      "failedCheck": "steps-completed"
+    }
+  ]
+}

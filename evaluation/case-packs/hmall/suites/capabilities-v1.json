@@ -1,0 +1,31 @@
+{
+  "id": "hmall-capabilities-v1",
+  "version": 1,
+  "cases": [
+    {
+      "path": "cases/cart-location/case.json",
+      "id": "hmall-cart-location",
+      "version": 1
+    },
+    {
+      "path": "cases/price-filter/case-v2.json",
+      "id": "hmall-price-filter",
+      "version": 2
+    },
+    {
+      "path": "cases/stock-filter/case.json",
+      "id": "hmall-stock-filter",
+      "version": 1
+    },
+    {
+      "path": "cases/search-multiturn/case.json",
+      "id": "hmall-search-multiturn",
+      "version": 1
+    },
+    {
+      "path": "cases/session-memory/case.json",
+      "id": "hmall-session-memory",
+      "version": 1
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "id": "hmall-history-compaction-v1",
+  "version": 1,
+  "cases": [
+    {
+      "path": "cases/history-compaction/case.json",
+      "id": "hmall-history-compaction",
+      "version": 1
+    }
+  ]
+}

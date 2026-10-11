@@ -1,0 +1,80 @@
+{
+  "id": "hmall-search-multiturn",
+  "version": 1,
+  "category": "multi-turn-context",
+  "snapshot": "snapshots/search-base-v1/manifest.json",
+  "prompt": "cases/search-multiturn/step-1.md",
+  "steps": [
+    {
+      "id": "step-1",
+      "session": "main",
+      "prompt": "cases/search-multiturn/step-1.md"
+    },
+    {
+      "id": "step-2",
+      "session": "main",
+      "prompt": "cases/search-multiturn/step-2.md"
+    },
+    {
+      "id": "step-3",
+      "session": "main",
+      "prompt": "cases/search-multiturn/step-3.md"
+    }
+  ],
+  "approvalRules": [
+    {
+      "operations": [
+        "WRITE",
+        "EDIT",
+        "MOVE"
+      ],
+      "include": [
+        "*/src/main/java/**/*.java"
+      ],
+      "exclude": [
+        "hm-service/**"
+      ]
+    },
+    {
+      "operations": [
+        "MKDIR"
+      ],
+      "include": [
+        "*/src/main/java",
+        "*/src/main/java/**"
+      ],
+      "exclude": [
+        "hm-service/**"
+      ]
+    }
+  ],
+  "manualChecks": [
+    {
+      "id": "request-example",
+      "instruction": "最终请求同时使用 onlyInStock 与 minSold，解释不能否定早期默认兼容、分页排序要求。"
+    }
+  ],
+  "verifier": {
+    "command": [
+      "powershell.exe",
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      "${pack}/cases/price-filter/verifier/verify.ps1",
+      "-Workspace",
+      "${workspace}",
+      "-OutputDirectory",
+      "${output}",
+      "-CaseDefinition",
+      "${pack}/cases/search-multiturn/case.json",
+      "-AcceptanceProfile",
+      "${pack}/cases/search-multiturn/acceptance.json",
+      "-EvidenceManifest",
+      "${evidence}"
+    ],
+    "workingDirectory": ".",
+    "timeoutSeconds": 600
+  }
+}

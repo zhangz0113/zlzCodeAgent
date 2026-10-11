@@ -1,0 +1,72 @@
+{
+  "id": "hmall-history-compaction",
+  "version": 1,
+  "category": "multi-turn-context",
+  "snapshot": "snapshots/price-filter-v1/manifest.json",
+  "prompt": "cases/history-compaction/step-1.md",
+  "steps": [
+    {
+      "id": "step-1",
+      "session": "main",
+      "prompt": "cases/history-compaction/step-1.md"
+    },
+    {
+      "id": "step-2",
+      "session": "main",
+      "prompt": "cases/history-compaction/step-2.md"
+    },
+    {
+      "id": "step-3",
+      "session": "main",
+      "prompt": "cases/history-compaction/step-3.md"
+    },
+    {
+      "id": "step-4",
+      "session": "main",
+      "prompt": "cases/history-compaction/step-4.md"
+    },
+    {
+      "id": "step-5",
+      "session": "main",
+      "prompt": "cases/history-compaction/step-5.md"
+    }
+  ],
+  "approvalRules": [],
+  "manualChecks": [
+    {
+      "id": "summary-constraint",
+      "instruction": "checkpoint 的生效约束应保留本次临时编号及源码/运行证据区分；结合原始首轮核对语义。"
+    },
+    {
+      "id": "final-grounding",
+      "instruction": "最终说明应正确解释商品批量查询，区分源码已确认和运行未验证。"
+    },
+    {
+      "id": "alternative-source",
+      "instruction": "核查全部记忆快照是否含临时约束；如存在，只允许陈述压缩触发及约束保留，不作独立因果归因。"
+    }
+  ],
+  "verifier": {
+    "command": [
+      "powershell.exe",
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      "${pack}/verifiers/verify-evidence.ps1",
+      "-Workspace",
+      "${workspace}",
+      "-OutputDirectory",
+      "${output}",
+      "-CaseDefinition",
+      "${pack}/cases/history-compaction/case.json",
+      "-EvidenceManifest",
+      "${evidence}",
+      "-Kind",
+      "history-compaction"
+    ],
+    "workingDirectory": ".",
+    "timeoutSeconds": 30
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "id": "hmall-session-memory",
+  "version": 1,
+  "category": "cross-session-memory",
+  "snapshot": "snapshots/price-filter-v1/manifest.json",
+  "prompt": "cases/session-memory/step-1.md",
+  "steps": [
+    {
+      "id": "step-1",
+      "session": "learn",
+      "prompt": "cases/session-memory/step-1.md"
+    },
+    {
+      "id": "step-2",
+      "session": "apply",
+      "prompt": "cases/session-memory/step-2.md"
+    }
+  ],
+  "approvalRules": [],
+  "manualChecks": [
+    {
+      "id": "memory-meaning",
+      "instruction": "核查 A 后有来源的工作区记忆确实表达三列表格约定。"
+    },
+    {
+      "id": "answer-grounding",
+      "instruction": "B 的表格准确说明商品批量查询，未验证事项不能编造成已验证结果。"
+    }
+  ],
+  "verifier": {
+    "command": [
+      "powershell.exe",
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      "${pack}/verifiers/verify-evidence.ps1",
+      "-Workspace",
+      "${workspace}",
+      "-OutputDirectory",
+      "${output}",
+      "-CaseDefinition",
+      "${pack}/cases/session-memory/case.json",
+      "-EvidenceManifest",
+      "${evidence}",
+      "-Kind",
+      "session-memory"
+    ],
+    "workingDirectory": ".",
+    "timeoutSeconds": 30
+  }
+}

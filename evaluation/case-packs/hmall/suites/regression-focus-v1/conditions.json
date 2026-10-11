@@ -1,0 +1,40 @@
+{
+  "groups" : {
+    "normal" : {
+      "sourceReport" : "phase3-formal",
+      "sourceBatch" : "batch-a4326b5e-a440-426b-a7b8-7113b0dcb486",
+      "sourceCasePackSha256" : "37c9af3dc8933fffdd2e32ef9368dfc0797e0fdb23648747299021b37984232d",
+      "runConfiguration" : {
+        "provider" : "deepseek",
+        "model" : "deepseek-flash",
+        "baseUrl" : "https://api.deepseek.com",
+        "reasoningEffort" : null,
+        "runTimeoutSeconds" : 300,
+        "modelTimeoutSeconds" : 120,
+        "runtimeProperties" : { }
+      },
+      "suite" : "suites/regression-focus-v1/normal.json"
+    },
+    "compaction" : {
+      "sourceReport" : "phase3-formal",
+      "sourceBatch" : "batch-95f0bcd1-9fb7-4eb9-8693-441b583e28df",
+      "sourceCasePackSha256" : "37c9af3dc8933fffdd2e32ef9368dfc0797e0fdb23648747299021b37984232d",
+      "runConfiguration" : {
+        "provider" : "deepseek",
+        "model" : "deepseek-flash",
+        "baseUrl" : "https://api.deepseek.com",
+        "reasoningEffort" : null,
+        "runTimeoutSeconds" : 300,
+        "modelTimeoutSeconds" : 120,
+        "runtimeProperties" : {
+          "codeagent.context.minimum-retained-turns" : "2",
+          "codeagent.context.summary-max-output-tokens" : "4096",
+          "codeagent.context.reserved-output-tokens" : "2048",
+          "codeagent.context.context-window-tokens" : "16384"
+        }
+      },
+      "suite" : "suites/regression-focus-v1/compaction.json"
+    }
+  },
+  "instruction" : "先创建关注集再冻结案例包；为两侧分别指定 Agent JAR/构建身份和凭据环境变量，保持各组其余条件一致。关注集与全量结果分别报告。"
+}
