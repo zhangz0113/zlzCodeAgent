@@ -215,6 +215,9 @@ is a local implementation entry, not a public service or security sandbox.
 
 ## Evaluation: hmall capability cases
 
+Case asset ownership, versioning, frozen experiments and local-output rules are
+documented in [Evaluation asset maintenance](evaluation/README.md).
+
 The case package includes seven tasks covering code understanding, bug repair,
 small features, multi-turn/context behavior, and cross-session memory. Case assets,
 reference patches and independent acceptance tests live under

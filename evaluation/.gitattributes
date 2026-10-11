@@ -1,0 +1,3 @@
+# Case definitions and verifier scripts use stable checkout bytes across machines.
+# Snapshot workspace bytes remain governed by snapshots/.gitattributes (-text).
+* text=auto eol=lf
