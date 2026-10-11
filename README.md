@@ -1,15 +1,16 @@
 # CodeAgent
 
-CodeAgent is being refactored into a single Git repository with two independent application packages:
+CodeAgent 正在整理为单一 Git 仓库，包含两个独立的应用目录：
 
-- `backend`: Java 21, Spring Boot, and Maven.
-- `web`: React, TypeScript, Vite, and pnpm.
+- `backend`：Java 21、Spring Boot 和 Maven 后端。
+- `web`：React、TypeScript、Vite 和 pnpm 前端。
 
-The packages keep separate dependency, build, and test entry points. This repository does not use Git submodules, Maven multi-modules, or a root pnpm workspace.
+前后端分别管理依赖、构建和测试入口。仓库不使用 Git 子模块、Maven 多模块或根目录 pnpm workspace。
 
-## Web
+<a id="web"></a>
+## 前端
 
-Requirements: Node.js and pnpm 11.7.0.
+环境要求：Node.js 和 pnpm 11.7.0。
 
 ```powershell
 cd web
@@ -18,11 +19,12 @@ pnpm build
 pnpm dev
 ```
 
-The Vite development server listens on `http://127.0.0.1:5173`.
+Vite 开发服务监听 `http://127.0.0.1:5173`。
 
-## Backend
+<a id="backend"></a>
+## 后端
 
-Requirements: Java 21. Maven is provided by the repository wrapper.
+环境要求：Java 21。仓库自带 Maven Wrapper，无需另行安装 Maven。
 
 ```powershell
 cd backend
@@ -30,30 +32,25 @@ cd backend
 .\mvnw.cmd spring-boot:run
 ```
 
-The backend listens on `http://127.0.0.1:8000`. Its stage 0 health endpoint is:
+后端监听 `http://127.0.0.1:8000`。阶段 0 提供的健康检查接口为：
 
 ```text
 GET http://127.0.0.1:8000/health
 {"status":"ok"}
 ```
 
-Session files are stored by default in the repository root `sessions/` directory. Set
-`CODEAGENT_SESSION_DIRECTORY` before starting the backend to use another directory.
+会话文件默认保存在仓库根目录的 `sessions/` 中。需要更换目录时，在启动后端前设置 `CODEAGENT_SESSION_DIRECTORY`。
 
-Authorized workspace state is stored by default in the repository root
-`workspaces/authorized-workspaces.json` file. Set `CODEAGENT_WORKSPACE_STATE_FILE`
-before starting the backend to use another file.
+已授权工作区的状态默认保存在仓库根目录的 `workspaces/authorized-workspaces.json` 中。需要更换文件位置时，在启动后端前设置 `CODEAGENT_WORKSPACE_STATE_FILE`。
 
-Stage 1 adds the OpenAI-compatible model and single-turn endpoints. The Vite development server proxies API requests to `http://127.0.0.1:8000` by default; set `VITE_AGENT_API_URL` to that address when calling the backend directly.
+阶段 1 增加兼容 OpenAI 协议的模型调用和单轮对话接口。Vite 开发服务默认将 API 请求代理到 `http://127.0.0.1:8000`；直接访问后端时，将 `VITE_AGENT_API_URL` 设置为该地址。
 
-## Evaluation: case preparation and independent verification
+<a id="evaluation-case-preparation-and-independent-verification"></a>
+## 评测：案例准备与独立验收
 
-The production executable supports `evaluation inspect`, `prepare`, and `verify`.
-These commands do not start the web application or call a model. Case packages are
-versioned separately from the Java implementation under `evaluation/case-packs/`;
-an external package path works in the same way.
+生产 JAR 支持 `evaluation inspect`、`prepare` 和 `verify`。这些命令不启动 Web 应用，也不调用模型。案例包位于 `evaluation/case-packs/`，其版本独立于 Java 实现管理；也可以使用仓库外的案例包路径。
 
-Build with Java 21 from `backend`, then return to the repository root:
+在 `backend` 中使用 Java 21 构建，然后回到仓库根目录执行：
 
 ```powershell
 Push-Location backend
@@ -65,15 +62,9 @@ java -jar $agentJar evaluation inspect --pack $casePack --suite suites/core.json
 java -jar $agentJar evaluation prepare --pack $casePack --case cases/price-filter/case.json --output backend/target/evaluation/example
 ```
 
-`prepare` requires a new output directory. It checks the snapshot hashes and copies
-only the snapshot's `workspace` contents. `prepared.json`, `snapshot.json`, and the
-task `prompt.md` remain outside that workspace. Only the workspace and task should
-be supplied to an Agent; the complete package also contains hidden verification
-materials and a reference patch.
+`prepare` 要求输出目录尚不存在。它会核对快照摘要，只复制快照的 `workspace` 内容；`prepared.json`、`snapshot.json` 和任务 `prompt.md` 保留在工作区外。只向 Agent 提供工作区和任务，完整案例包还包含不应向被测 Agent 展示的验收材料与参考修复补丁。
 
-The included hmall case uses Java 11, Maven, PowerShell, H2 2.1.214, and real
-Spring MVC / MyBatis queries. It does not need Nacos or a running MySQL server.
-Set the local tool paths before verification (replace the JDK example path):
+随仓库提供的 hmall 案例使用 Java 11、Maven、PowerShell、H2 2.1.214，以及真实的 Spring MVC / MyBatis 查询，无需启动 Nacos 或 MySQL。验收前设置本机工具路径，下面的 JDK 路径需要替换：
 
 ```powershell
 $env:EVAL_JAVA_HOME = 'C:\path\to\jdk-11'
@@ -81,49 +72,26 @@ $env:EVAL_MAVEN_WRAPPER = (Resolve-Path backend/mvnw.cmd).Path
 java -jar $agentJar evaluation verify --pack $casePack --case cases/price-filter/case.json --workspace backend/target/evaluation/example/workspace --output backend/target/evaluation/example-result
 ```
 
-The original code is expected to fail the single-bound price requirements.
-To qualify the complete case, use Git and the shipped reference patch:
+原始代码预期无法通过仅设置价格上限或下限的要求。使用 Git 和案例包中的参考补丁，可以验证整道题是否有效：
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File evaluation/case-packs/hmall/cases/price-filter/validate-case.ps1 -CodeAgentJar $agentJar -OutputDirectory backend/target/evaluation/qualification -Java11Home $env:EVAL_JAVA_HOME -MavenWrapper $env:EVAL_MAVEN_WRAPPER
 ```
 
-This checks the unmodified snapshot and a separate reference repair with the same
-ten checks. The original hmall source is not needed or modified. This qualification
-validates the task, not Agent performance. Use a new output path for each run.
+该流程使用同样的十项检查，分别验收未修改快照和独立的参考修复副本，不需要也不会修改原 hmall 项目。资格验证用于确认考题有效，不代表 Agent 的表现。每次运行都使用新的输出路径。
 
-`verification.json` is the normalized result; `execution.json` records the case,
-snapshot, workspace, duration and process exit. The hmall verifier additionally
-preserves Maven output, JUnit XML and tool environment information. `PASS`, `FAIL`,
-`ERROR`, and `PENDING_REVIEW` map to CLI exits 0, 1, 2, and 3. A process failure or
-invalid verifier response produces `ERROR`; a valid failing business check produces
-`FAIL`. The verifier process itself must exit 0 when delivering a valid result,
-including a business failure. Archive complete result directories before `clean`.
+`verification.json` 保存统一格式的验收结果；`execution.json` 记录案例、快照、工作区、耗时和进程退出信息。hmall 验收器还保留 Maven 输出、JUnit XML 和工具环境信息。`PASS`、`FAIL`、`ERROR`、`PENDING_REVIEW` 分别对应 CLI 退出码 0、1、2、3。进程失败或验收响应无效记为 `ERROR`；有效的业务检查未通过记为 `FAIL`。验收器进程只要交付了有效结果，就必须以 0 退出，包括业务检查失败的情况。执行 `clean` 前先归档完整结果目录。
 
-Case packages declare a command argument array, package-relative working directory,
-and timeout. `${pack}`, `${workspace}`, and `${output}` are replaced in individual
-arguments without interpreting model text as a shell command. The command writes
-`result.json` into the output directory with `status`, `checks` (`id`, `passed`,
-`detail`), `evidence` (output-relative files), and optional `error`. Language-specific
-setup and result translation stay in the package. The core does not know Maven,
-H2, or hmall. Run only trusted local case packages; this is not a code sandbox.
+案例包声明命令参数数组、相对案例包的工作目录和超时时间。`${pack}`、`${workspace}`、`${output}` 在各个参数中分别替换，不把模型文本解释为 shell 命令。验收命令向输出目录写入 `result.json`，包含 `status`、`checks`（`id`、`passed`、`detail`）、`evidence`（相对输出目录的文件）和可选 `error`。语言相关的环境准备与结果转换留在案例包内，核心执行器不依赖 Maven、H2 或 hmall。只运行可信的本地案例包；执行器不提供代码沙箱。
 
-Optional `prepare --identity FILE` records requested experiment metadata using
-`batchId`, `agentRevision`, `model`, `provider`, `reasoningEffort`, `strategy` and
-`budgets`. Unconfigured metadata remains null; it does not claim a model was run.
-Optional `verify --env FILE` reads a local JSON map of environment overrides.
-Keep credentials and machine-specific environment files outside case packages.
+可选参数 `prepare --identity FILE` 使用 `batchId`、`agentRevision`、`model`、`provider`、`reasoningEffort`、`strategy`、`budgets` 记录声明的实验信息。未配置的字段保持 null，这份信息不表示模型已经执行。可选参数 `verify --env FILE` 从本地 JSON 映射读取环境变量覆盖值。凭据和本机环境文件应保存在案例包外。
 
-## Evaluation: real Agent runs and review
+<a id="evaluation-real-agent-runs-and-review"></a>
+## 评测：真实 Agent 执行与人工审核
 
-`evaluation run` executes a suite serially. Each attempt launches the selected
-CodeAgent JAR in a separate Java 21 process, with its own workspace, sessions,
-memory, approvals, run records, and logs. The worker uses the real application
-services without listening on an HTTP port. The parent waits for worker exit,
-archives all changed/new/deleted files, and then invokes independent verification.
+`evaluation run` 串行执行任务集。每次尝试都在独立的 Java 21 进程中启动指定 CodeAgent JAR，使用独立的工作区、会话、记忆、审批、运行记录和日志。工作进程调用真实应用服务，但不监听 HTTP 端口。父进程等待它退出，归档全部修改、新增和删除的文件，再进行独立验收。
 
-Build the backend first. Create a local `backend/target/evaluation-run.json`
-using this shape, replacing the model connection and declared build revision:
+先构建后端，再按照以下结构创建本地 `backend/target/evaluation-run.json`，替换模型连接信息和声明的构建版本：
 
 ```json
 {
@@ -140,10 +108,7 @@ using this shape, replacing the model connection and declared build revision:
 }
 ```
 
-`agentJar` is relative to that JSON file. Its SHA-256 is recorded separately from
-the declared Git revision. Supply the credential through the named environment
-variable; it is not included in configuration snapshots or worker command lines.
-The hmall verifier also needs `EVAL_JAVA_HOME` and `EVAL_MAVEN_WRAPPER` as above.
+`agentJar` 相对于该 JSON 文件解析；JAR 的 SHA-256 与声明的 Git 提交分别记录。通过指定环境变量提供密钥，配置快照和工作进程命令行均不包含密钥。hmall 验收器还需要前文配置的 `EVAL_JAVA_HOME` 和 `EVAL_MAVEN_WRAPPER`。
 
 ```powershell
 $verifierEnvironment = @{
@@ -155,89 +120,42 @@ $verifierEnvironment | ConvertTo-Json | Set-Content backend/target/evaluation-en
 java -jar $agentJar evaluation run --pack $casePack --suite suites/core-v2.json --config backend/target/evaluation-run.json --output backend/target/evaluation/batch-example --repeat 2 --env backend/target/evaluation-env.json
 ```
 
-The hmall verifier uses Windows PowerShell. Passing its module path explicitly
-also supports launching the Java runner from PowerShell 7, whose inherited module
-path can otherwise prevent the verifier from loading commands such as `Get-FileHash`.
-This environment file contains verifier settings only; keep the model key in its
-separate process environment variable.
+hmall 验收器使用 Windows PowerShell。显式传入它的模块路径后，也可以从 PowerShell 7 启动 Java 执行器；否则继承的模块路径可能导致验收器无法加载 `Get-FileHash` 等命令。该环境文件只保存验收配置，模型密钥仍通过独立的进程环境变量提供。
 
-The v2 case declares a single repair step and approval rules for business Java
-files, excluding `hm-service`. The v1 case and qualification command remain
-available. Case `steps` contain `id`, a logical `session` alias, and a package-relative
-prompt file. Repeated aliases share a session; a new alias creates a new session
-within the same attempt. Missing steps use the original prompt once. Approval
-rules declare operations, include patterns, and exclude patterns using Ant-style
-paths. Missing approval rules permit no automatic modifications. A denied proposal
-is recorded and the Agent can continue using allowed operations.
+v2 案例声明一个修复步骤，以及针对业务 Java 文件的审批规则，其中排除 `hm-service`。v1 案例和资格验证命令仍可使用。案例的 `steps` 包含 `id`、逻辑 `session` 别名和相对案例包的题面文件。相同别名复用会话，新别名在同一次尝试中创建新会话；未声明步骤时，使用原题面执行一次。审批规则通过 Ant 风格路径声明操作、包含模式和排除模式；没有规则时不允许自动修改。被拒绝的提议会被记录，Agent 仍可继续使用获准操作。
 
-Each attempt includes `attempt.json`, the original `worker-result.json`, normalized
-`execution.json`, `evidence/manifest.json`, `artifact/`, `changes.json`, `changes.patch`,
-and independent `verification/` output. Relative evidence paths in the manifest's
-step records start at `evidence/`. `runtime/` retains the isolated stores and logs.
-New files are included even when they were never tracked by Git. Artifact and
-verification workspace are separate copies.
+每次尝试包含 `attempt.json`、原始 `worker-result.json`、统一格式的 `execution.json`、`evidence/manifest.json`、`artifact/`、`changes.json`、`changes.patch` 和独立的 `verification/` 输出。清单中各步骤的证据路径相对于 `evidence/`；`runtime/` 保留隔离存储和日志。未被 Git 跟踪的新增文件也会归档，产物与验收工作区使用不同副本。
 
-`initial-result.json` preserves the first conclusion. `result.json` is the current
-derived conclusion. A successful Run is not an automatic PASS: required execution
-must complete and independent checks must pass. Known model connection failures
-produce ERROR; the overall `AGENT_RUN_TIMEOUT` budget or context capacity exhaustion
-produces FAIL. Unknown execution failures remain PENDING_REVIEW. A failed Run's
-partial artifact passing tests cannot change the attempt into PASS.
+`initial-result.json` 保留首次结论，`result.json` 保存当前派生结论。Run 执行成功不会自动得到 `PASS`，还需要完成全部必要执行并通过独立检查。已知模型连接故障记为 `ERROR`；整体 `AGENT_RUN_TIMEOUT` 预算耗尽或上下文容量耗尽记为 `FAIL`；未知执行失败保留为 `PENDING_REVIEW`。失败 Run 留下的部分产物即使通过测试，也不能将该次尝试改判为 `PASS`。
 
-Cases can declare `manualChecks` as `id` / `instruction` pairs; a manual-only case
-may omit `verifier`. Copy the generated `pending-review.json` to a local input file,
-fill its reviewer/comment, each required PASS/FAIL and nonempty evidence file list
-(paths relative to the attempt directory), then import it:
+案例可用 `id` / `instruction` 对声明 `manualChecks`；只需人工验收的案例可以省略 `verifier`。将生成的 `pending-review.json` 复制为本地输入文件，填写审核人、评论、每项必需检查的 PASS/FAIL 和非空证据文件列表，路径相对于尝试目录，然后导入：
 
 ```powershell
 java -jar $agentJar evaluation review --attempt PATH_TO_ATTEMPT --input LOCAL_REVIEW_JSON
 ```
 
-An unknown failed execution instead requests `executionClassification`: FAIL or
-ERROR, a reason, and evidence. It cannot be reviewed as PASS. Reviews are appended
-under `reviews/`; a corrected complete review creates another record. Automatic
-failures and the original execution are preserved. `batch.json` is the run-time
-index; after reviews, read each attempt's current `result.json` for its conclusion.
+未知执行失败需要填写 `executionClassification`（FAIL 或 ERROR）、原因和证据，不能审核为 PASS。审核记录追加到 `reviews/`，修正后的完整审核会创建新记录；自动失败与原始执行仍保留。`batch.json` 是执行时的索引，审核后应读取每次尝试的当前 `result.json` 获取结论。
 
-Verifiers for explanation or scenario tasks may use `${evidence}` to receive the
-evidence manifest. Standalone `verify` accepts `--evidence PATH` for those cases;
-existing verifiers need no parameter changes. Tool payload references, step session
-snapshots and applicable memory are exported, with missing evidence marked. Memory
-existence alone does not prove the model used it. Token metrics cover only the
-returned main-loop usage and may be incomplete; extra compaction/consolidation
-calls are not included in that figure.
+解释类或场景类任务的验收器可通过 `${evidence}` 接收证据清单，独立 `verify` 命令也支持为这些案例传入 `--evidence PATH`，已有验收器无需修改参数。工具载荷引用、步骤会话快照和适用记忆会被导出，缺失证据会被标记。记忆存在本身不能证明模型使用过它。token 指标只覆盖已返回的主循环用量，可能不完整，不包含额外压缩和记忆归并调用。
 
-A known ERROR stops the batch and preserves the remaining NOT_RUN entries. FAIL
-and PENDING_REVIEW do not stop subsequent attempts. Batch exit precedence is
-ERROR=2, FAIL=1, PENDING_REVIEW=3, otherwise 0. There are no automatic retries.
-Archive the entire batch before cleaning `target`. The internal `worker` command
-is a local implementation entry, not a public service or security sandbox.
+已知 `ERROR` 会中止批次，剩余项保留为 `NOT_RUN`；`FAIL` 和 `PENDING_REVIEW` 不阻止后续尝试。批次退出码优先级为 ERROR=2、FAIL=1、PENDING_REVIEW=3，否则为 0，不自动重试。清理 `target` 前归档整个批次。内部 `worker` 命令是本地实现入口，不是公开服务或安全沙箱。
 
-## Evaluation: hmall capability cases
+<a id="evaluation-hmall-capability-cases"></a>
+## 评测：hmall 能力案例
 
-Case asset ownership, versioning, frozen experiments and local-output rules are
-documented in [Evaluation asset maintenance](evaluation/README.md).
+案例资产归属、版本、实验冻结和本地输出规则见[评测资产维护](evaluation/README.md)。
 
-The case package includes seven tasks covering code understanding, bug repair,
-small features, multi-turn/context behavior, and cross-session memory. Case assets,
-reference patches and independent acceptance tests live under
-`evaluation/case-packs/hmall/`; only snapshot source and step prompts are presented
-to the Agent. The core runner remains independent of Java, Maven and hmall.
+案例包包含七项任务，覆盖代码理解、缺陷修复、小功能、多轮与上下文行为，以及跨会话记忆。案例资产、参考补丁和独立验收测试位于 `evaluation/case-packs/hmall/`；只向 Agent 提供快照源码和步骤题面。核心执行器保持独立于 Java、Maven 和 hmall。
 
-| Suite | Cases | Runtime properties |
+| 任务集 | 案例 | 运行条件配置 |
 | --- | --- | --- |
-| `suites/capabilities-v1.json` | Cart explanation, price repair v2, stock filter, multi-turn search, session memory | `profiles/normal-v1.json` |
-| `suites/tool-payload-v1.json` | Directed retrieval from a stored tool result | `profiles/tool-payload-v1.json` |
-| `suites/history-compaction-v1.json` | Early task constraint retained across history compaction | `profiles/history-compaction-v1.json` |
+| `suites/capabilities-v1.json` | 购物车解释、价格修复 v2、库存筛选、多轮搜索、会话记忆 | `profiles/normal-v1.json` |
+| `suites/tool-payload-v1.json` | 从已保存的工具结果中定向取回原文 | `profiles/tool-payload-v1.json` |
+| `suites/history-compaction-v1.json` | 历史压缩后保留早期任务约束 | `profiles/history-compaction-v1.json` |
 
-Feature tasks start from `search-base-v1`, which applies the trusted price repair
-to the original fixed snapshot. Their checks retain the original 10 price tests:
-stock has 16 business checks, and multi-turn search has 23 plus scenario evidence
-checks. The verifier builds a separate copy using Java 11, Maven and local H2;
-no service registry, shared database or running microservice cluster is required.
+功能题从 `search-base-v1` 开始，它在原固定快照上应用了可信的价格修复。验收保留原有十项价格测试：库存题共 16 项业务检查，多轮搜索题共 23 项业务检查，另加场景证据检查。验收器使用 Java 11、Maven 和本地 H2 构建独立副本，无需服务注册中心、共享数据库或完整微服务集群。
 
-Qualify the cases before collecting model results. From the repository root,
-using the `$agentJar`, `$casePack` and verifier environment configured above:
+收集模型结果前先完成案例资格验证。在仓库根目录使用前文配置的 `$agentJar`、`$casePack` 和验收环境执行：
 
 ```powershell
 & "$casePack/validate-phase3.ps1" -CodeAgentJar $agentJar `
@@ -245,15 +163,9 @@ using the `$agentJar`, `$casePack` and verifier environment configured above:
   -Java11Home $env:EVAL_JAVA_HOME -MavenWrapper $env:EVAL_MAVEN_WRAPPER
 ```
 
-The script uses a new output directory, checks legacy compatibility, verifies
-reference and deliberately incorrect implementations, and checks synthetic
-positive/negative evidence. `-Mode Business` or `-Mode Evidence` runs one group.
-Synthetic evidence is explicitly marked; it is verifier qualification, not a
-measurement of Agent capability. Maven dependencies must be available as with
-the original price case.
+脚本使用新的输出目录，检查旧版兼容性、正确参考、刻意构造的错误实现，以及合成的正反例证据。`-Mode Business` 或 `-Mode Evidence` 可只执行一组。合成证据会明确标识，只用于确认验收器有效，不作为 Agent 能力成绩。与原价格题一样，运行前需要确保 Maven 依赖可用。
 
-Runtime properties apply to an entire batch, so execute the three suites with
-their matching profiles. Starting from the local connection config above:
+运行条件配置作用于整个批次，因此三个任务集应分别搭配对应 profile 执行。基于前文的本地连接配置：
 
 ```powershell
 $config = Get-Content backend/target/evaluation-run.json -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -270,49 +182,32 @@ foreach ($group in $groups) {
 }
 ```
 
-Keep the model key in `CODEAGENT_EVAL_API_KEY`; profiles contain no connection
-secrets. Use fresh output paths for subsequent runs. Compare only attempts with
-the same case/snapshot and declared execution conditions; one attempt per case
-does not establish a stable success rate.
+模型密钥保存在 `CODEAGENT_EVAL_API_KEY` 中，profiles 不含连接密钥。后续运行使用新的输出路径。只比较案例、快照及声明执行条件一致的尝试；每题执行一次不能证明稳定成功率。
 
-Explanation, multi-turn delivery, compaction semantics and memory semantics have
-fixed manual checks. An automatic PASS can therefore leave the attempt
-PENDING_REVIEW until the review command above records the human decision.
-Automatic failures cannot be overridden by a favorable manual review.
+解释、多轮交付、压缩语义和记忆语义都有固定人工检查项。因此自动验收通过后，尝试仍可能处于 `PENDING_REVIEW`，直到前文的 review 命令记录人工决定。人工给出通过结论也不能覆盖自动失败。
 
-Mechanism verifiers export `mechanism-evidence.json` alongside their checks.
-Retrieval requires the actual matching `read_tool_result` response, not a correct
-answer obtained by rereading the file. Compaction requires a checkpoint covering
-the early turn, and reports memory as a possible alternative source. The memory
-case checks A's stored provenance and B's independent conversation and learned
-format. Applicable-memory exports do not prove which entries were injected into
-an individual model request. Multi-turn business tests inspect the final artifact;
-the runner does not snapshot and test each intermediate source revision.
+机制验收器在检查结果旁导出 `mechanism-evidence.json`。原文取回必须有实际匹配的 `read_tool_result` 响应，通过重新读取文件答对不能替代该证据。压缩要求存在覆盖早期轮次的 checkpoint，并将记忆标为可能的替代信息源。记忆案例检查 A 的存储来源、B 的独立会话和学到的格式。适用记忆导出不能证明某条记忆曾注入某次模型请求。多轮业务测试检查最终产物，执行器不会逐一快照并测试每个中间源码版本。
 
-### Offline evaluation reports and controlled comparisons
+<a id="offline-evaluation-reports-and-controlled-comparisons"></a>
+### 离线评测报告与受控比较
 
-The production JAR also provides `report`, `compare`, `analyze`, and `focus`.
-These commands read saved files and do not call a model or start the daily Web
-application. Reports preserve a copy of their inputs; always use a new output
-directory. Move the whole report directory to retain relative evidence links.
+生产 JAR 还提供 `report`、`compare`、`analyze` 和 `focus`。这些命令读取已保存文件，不调用模型，也不启动日常 Web 应用。报告保留输入副本，输出目录必须使用新路径；搬迁时移动整个报告目录，以保留相对证据链接。
 
-Create a local report selection file (paths are relative to that file):
+创建本地报告选取文件，路径相对于该文件解析：
 
 ```json
 {
   "id": "capabilities-observation",
-  "title": "CodeAgent capability observations",
+  "title": "CodeAgent 能力观察",
   "groups": [
-    {"id": "normal", "label": "Normal conditions", "batch": "phase3-capabilities-v1", "suite": "suites/capabilities-v1.json"},
-    {"id": "payload", "label": "Tool payload conditions", "batch": "phase3-tool-payload-v1", "suite": "suites/tool-payload-v1.json"},
-    {"id": "compaction", "label": "Compaction conditions", "batch": "phase3-history-compaction-v1", "suite": "suites/history-compaction-v1.json"}
+    {"id": "normal", "label": "常规条件", "batch": "phase3-capabilities-v1", "suite": "suites/capabilities-v1.json"},
+    {"id": "payload", "label": "工具载荷条件", "batch": "phase3-tool-payload-v1", "suite": "suites/tool-payload-v1.json"},
+    {"id": "compaction", "label": "历史压缩条件", "batch": "phase3-history-compaction-v1", "suite": "suites/history-compaction-v1.json"}
   ]
 }
 ```
 
-Select formal batches explicitly; calibration and synthetic verifier checks do
-not count as Agent observations. Group IDs must remain stable between compared
-reports. A duplicate attempt ID is rejected even if its archive was copied.
+显式选取正式批次，校准和合成验收检查不计为 Agent 观察结果。比较报告之间的分组 ID 必须保持稳定；即使复制了归档，重复的 attempt ID 仍会被拒绝。
 
 ```powershell
 java -jar $agentJar evaluation report --input LOCAL_SELECTION_JSON --output NEW_REPORT_DIR
@@ -320,74 +215,46 @@ java -jar $agentJar evaluation report --input LOCAL_SELECTION_JSON --issues LOCA
 java -jar $agentJar evaluation compare --baseline BASELINE_REPORT_DIR --candidate CANDIDATE_REPORT_DIR --experiment LOCAL_EXPERIMENT_JSON --output NEW_COMPARISON_DIR
 ```
 
-Open `report.html` or `comparison.html` directly; CSS, scripts, and data are
-embedded, with no CDN or server. Markdown and JSON outputs contain the same
-calculated results. Current `result.json` takes precedence over a stale batch
-index; initial results and reviews remain linked. Missing required results are
-report data issues, not guessed FAILs. `report` exits with 2 for these data
-issues; a complete report containing failed Agent attempts exits with 0.
-An incomparable experiment also produces a valid comparison report.
+直接打开 `report.html` 或 `comparison.html` 即可查看，CSS、脚本和数据均内嵌，不依赖 CDN 或服务器。Markdown 和 JSON 输出使用同一份计算结果。当前 `result.json` 优先于过期批次索引，同时保留初始结果和审核链接。缺少必要结果属于报告数据问题，不猜测为 FAIL；此时 `report` 以 2 退出。数据完整但包含 Agent 失败尝试的报告以 0 退出。实验不可比时，也会生成有效的比较报告。
 
-The experiment input specifies the hypothesis and exact changing condition
-paths. For an Agent build change, for example:
+实验输入声明假设及实际变化的条件路径。以更换 Agent 构建为例：
 
 ```json
 {
-  "title": "Before and after the Agent change",
-  "hypothesis": "The change improves the selected task without breaking other cases.",
+  "title": "Agent 修改前后比较",
+  "hypothesis": "这项修改能够改善选定任务，同时不破坏其他案例。",
   "changedFactors": ["/agentJarSha256"],
-  "environmentDeclaration": "Describe the known verifier environment and its evidence; leave null when unknown.",
+  "environmentDeclaration": "说明已知验收环境及其证据；未知时填写 null。",
   "environmentEvidence": []
 }
 ```
 
-Condition paths are JSON pointers shown in report JSON. Declare every actual
-changed leaf; a model change can affect both `/model` and `/effective/model`.
-There is no wildcard exemption. Case-pack, snapshot, verifier, manual-check and
-approval identities cannot be waived as strategy variables. Changed cases need
-a new baseline on the same new package. Effective defaults are compared, while
-known per-attempt state paths are excluded.
+条件路径使用报告 JSON 中的 JSON Pointer。必须逐一声明实际发生变化的叶子字段；更换模型可能同时改变 `/model` 和 `/effective/model`。不支持使用通配符豁免。案例包、快照、验收器、人工检查和审批规则的身份不能作为策略变量豁免比较；修改案例后，需要在同一新包上重新建立基线。比较采用实际生效的默认值，并排除已知的每次尝试专属状态路径。
 
-A verifier may save `environment.json` alongside its results, recording
-`runtime`, `runtimeVersion`, `buildTool`, `buildToolVersion`, and `os` as nonempty
-strings, plus any relevant dependency versions or configuration. For example,
-a frontend case can record Node.js and pnpm, and a Java case JDK and Maven.
-These records must describe the actual verification environment, not inferred
-versions from directory names. Matching recorded conditions permit a controlled
-observation; incomplete legacy environment records or a human declaration yield
-only a limited comparison. Optional `environmentEvidence` entries reference files
-inside `baseline/` or `candidate/` bundles and support that declaration; they do
-not automatically certify it. Small samples never establish statistical significance.
+验收器可以在结果旁保存 `environment.json`，以非空字符串记录 `runtime`、`runtimeVersion`、`buildTool`、`buildToolVersion`、`os`，以及相关依赖版本或配置。例如，前端案例记录 Node.js 和 pnpm，Java 案例记录 JDK 和 Maven。这些记录必须描述实际验收环境，不能根据目录名称推测版本。已记录条件一致时可以进行受控观察；旧环境记录不完整或仅有人工声明时，只能给出受限比较。可选的 `environmentEvidence` 引用 `baseline/` 或 `candidate/` 归档内的文件来支持声明，但不会自动认证声明成立。小样本不能证明统计显著性。
 
-Repeated attempts are reported as full distributions, not paired by repetition
-number. Same or overlapping attempt IDs are explicitly identified. Re-reviewing
-an answer or re-verifying an old artifact is not a new Agent attempt. Costs show
-recorded main-loop use and coverage; absent metrics remain unknown. Passing-case
-costs are provided only when both sides have passing observations of that case.
+重复尝试展示完整分布，不按重复序号一一配对。相同或重叠的 attempt ID 会被明确标出；重新审核答案或复验旧产物不属于新 Agent 尝试。成本只展示已记录的主循环用量及覆盖范围，缺失指标保留未知。只有某题两侧都有通过记录时，才展示该题通过样本的成本比较。
 
-For per-case repetition, a local JSON map such as `{"hmall-price-filter": 3}`
-overrides the default `--repeat`; unknown case IDs and nonpositive counts are
-rejected before execution:
+可通过本地 JSON 映射（例如 `{"hmall-price-filter": 3}`）为各题指定重复次数，覆盖默认 `--repeat`；未知案例 ID 或非正数次数会在执行前被拒绝：
 
 ```powershell
 java -jar $agentJar evaluation run --pack $casePack --suite suites/capabilities-v1.json --config LOCAL_RUN_CONFIG --output NEW_BATCH_DIR --repeat 1 --repeat-map LOCAL_REPEAT_MAP --env LOCAL_VERIFIER_ENV
 ```
 
-### Failure analysis and regression follow-up
+<a id="failure-analysis-and-regression-follow-up"></a>
+### 失败分析与回归跟进
 
-An analysis entry has an ID, case identity, referenced attempts, observed facts,
-origin (`AGENT`, `CASE_VERIFIER`, `ENVIRONMENT`, `UNKNOWN`), cause category,
-confidence (`UNKNOWN`, `SUSPECTED`, `CONFIRMED`), author, and next action. Example:
+分析条目包含 ID、案例身份、引用的尝试、观察事实、问题来源（`AGENT`、`CASE_VERIFIER`、`ENVIRONMENT`、`UNKNOWN`）、原因类别、确定程度（`UNKNOWN`、`SUSPECTED`、`CONFIRMED`）、作者和下一步行动。例如：
 
 ```json
 {
-  "id": "01-observed-problem", "title": "Describe the observed problem",
-  "status": "OPEN", "label": "needs-triage", "author": "Your name / analysis proposal",
+  "id": "01-observed-problem", "title": "描述观察到的问题",
+  "status": "OPEN", "label": "needs-triage", "author": "填写姓名或标注为分析建议",
   "caseId": "hmall-price-filter", "caseVersion": 2,
   "attempts": [{"group": "normal", "attemptId": "COPY_FROM_REPORT", "evidence": ["result.json", "verification/verification.json"]}],
-  "observed": "Facts supported by those files, separately from a proposed cause.",
+  "observed": "填写这些文件能够支持的事实，与推测原因分开。",
   "origin": "UNKNOWN", "category": "UNKNOWN", "confidence": "UNKNOWN",
-  "nextAction": "The next concrete investigation or retest.",
+  "nextAction": "填写下一项具体排查或复测动作。",
   "change": null, "retestReport": null, "comparisonReport": null, "resolution": null
 }
 ```
@@ -397,28 +264,8 @@ java -jar $agentJar evaluation analyze --report REPORT_DIR --input LOCAL_ANALYSI
 java -jar $agentJar evaluation focus --report REPORT_DIR --issues LOCAL_ISSUES_DIR --ids 01-observed-problem --pack $casePack --name regression-focus-example
 ```
 
-Each issue is a Markdown file. New analysis appends a structured revision under
-`Comments`, preserving earlier analysis and the original result. Use `review`
-for declared human judgments and `verify` for artifact rechecks. Neither is
-replaced by an issue card. `READY_FOR_RETEST` requires a concrete `change`;
-`VERIFIED` requires an explanation and existing `retestReport` and
-`comparisonReport` directories linking a new executed attempt to this case.
-It means verification was performed, not that the issue necessarily improved.
+每个问题保存为 Markdown 文件，新分析在 `Comments` 下追加结构化修订，保留旧分析和原始判定。人工成绩审核使用 `review`，产物复验使用 `verify`，问题卡不能替代它们。`READY_FOR_RETEST` 要求填写具体 `change`；`VERIFIED` 要求说明结果，并提供已存在的 `retestReport` 和 `comparisonReport` 目录，将该案例关联到一次新的执行尝试。它表示已经完成验证，不一定表示问题有所改善。
 
-Focus outputs are new suites under `suites/<name>/`, one per condition group,
-plus `conditions.json`. They reference existing cases without copying sources,
-prompts or tests. Supply the chosen Agent build and credentials when running;
-the generated conditions file is guidance, not a complete run configuration.
-Creating these suites changes the package hash: create them **before** freezing
-the package and running both baseline and candidate. Keep focus results and
-full-suite regression results separate.
+`focus` 在 `suites/<name>/` 下生成新任务集，每个条件组一个文件，另附 `conditions.json`。这些文件引用已有案例，不复制源码、题面或测试。运行时仍需提供选定的 Agent 构建和凭据，生成的条件文件是指导材料，不是完整运行配置。创建这些任务集会改变案例包摘要，因此应在冻结案例包、运行基线和候选版本**之前**生成。关注集结果与全量回归结果分别保存。
 
-For a newly discovered issue not covered by an existing case: preserve its
-source, fix a reproducible code snapshot and prompt, define independent checks,
-validate the failing start and a correct reference, then add a versioned case
-and suite reference. Use existing `inspect`, `prepare`, and `verify` commands
-and the package's qualification entry. When the historical source is unavailable,
-label the new case as a representative reproduction. Then record the baseline,
-make the separately reviewed Agent change, run focused and full regression,
-compare all observations, and link the outcome back to the issue. Tool delivery
-alone does not constitute this completed experiment.
+对于已有案例未覆盖的新问题：保留问题来源，固定可复现的代码快照与题面，定义独立检查，验证失败起点和正确参考，再增加版本化案例及任务集引用。复用 `inspect`、`prepare`、`verify` 和案例包资格验证入口。无法取得历史源码时，将新案例标注为代表性复现。随后记录基线，按单独审核的方案修改 Agent，运行关注集与全量回归，比较所有观察结果，再将结论关联回问题卡。工具交付本身不代表这一实验流程已经完成。
