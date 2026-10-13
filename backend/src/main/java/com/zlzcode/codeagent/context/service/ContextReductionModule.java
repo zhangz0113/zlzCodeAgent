@@ -360,18 +360,21 @@ public final class ContextReductionModule {
 
     private int estimateSerializedTokens(LlmRequest request) {
         try {
-            String json = objectMapper.writeValueAsString(request);
-            long ascii = 0;
-            long nonAscii = 0;
-            for (int codePoint : json.codePoints().toArray()) {
-                if (codePoint <= 0x7F) ascii++;
-                else nonAscii++;
-            }
-            long estimate = (ascii + 3L) / 4L + nonAscii;
-            return estimate > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) estimate;
+            return estimateTextTokens(objectMapper.writeValueAsString(request));
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("Unable to estimate model request capacity", exception);
         }
+    }
+
+    public static int estimateTextTokens(String text) {
+        long ascii = 0;
+        long nonAscii = 0;
+        for (int codePoint : text.codePoints().toArray()) {
+            if (codePoint <= 0x7F) ascii++;
+            else nonAscii++;
+        }
+        long estimate = (ascii + 3L) / 4L + nonAscii;
+        return estimate > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) estimate;
     }
 
     private String toolNameForResult(
