@@ -41,12 +41,14 @@ public final class RepositorySearchService {
             /*
              * 背景：同步/解析是阻塞文件工作，外层订阅取消后底层覆盖仍可能正在退出。
              * 设计意图：在专用后台线程执行固定流水线，以 worker finally 释放执行权。
-             * 关键约束：不把 scheduler 任务取消绑定到响应；过早释放会允许同工作区并发更新。
+             * 关键约束：不把任务取消绑定到响应，且工作 finally 必须先于完成信号；过早释放会并发更新，过晚释放会让同批下一项误报忙。
              */
             return Mono.<SearchDelivery>create(sink -> {
                 try { index.scheduler().schedule(() -> {
-                    try (lease) { sink.success(execute(workspace, request, lease)); }
-                    catch (RuntimeException exception) { sink.error(exception); }
+                    final SearchDelivery delivery;
+                    try (lease) { delivery = execute(workspace, request, lease); }
+                    catch (RuntimeException exception) { sink.error(exception); return; }
+                    sink.success(delivery);
                 }); } catch (RuntimeException exception) { lease.close(); sink.error(exception); }
             }).timeout(properties.searchTimeout(), Mono.error(new RetrievalException(RetrievalException.Code.TIMEOUT, "检索超时，请先准备索引再重试")));
         });
