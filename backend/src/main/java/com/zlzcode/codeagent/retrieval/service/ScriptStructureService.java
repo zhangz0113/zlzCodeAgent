@@ -16,7 +16,11 @@ public final class ScriptStructureService {
         List<Part> parts = new ArrayList<>();
         for (TSNode child : children(root)) {
             if (child.getType().equals("import_statement")) {
-                imports(child, bytes, bindings); continue;
+                var imported = new LinkedHashMap<String, ModuleBinding>();
+                imports(child, bytes, imported); bindings.putAll(imported);
+                if (!imported.isEmpty()) parts.add(new Part(commentStart(child), child.getEndByte(), "import", "", "", -1,
+                        List.of(), false, imported.keySet().stream().map(name -> new Reference("binding", name, "", -1)).toList(), List.of()));
+                continue;
             }
             if (child.getType().equals("export_statement")) {
                 TSNode declaration = child.getChildByFieldName("declaration");
@@ -26,16 +30,20 @@ public final class ScriptStructureService {
                     add(declaration, commentStart(child), "", true, bytes, parts);
                 } else {
                     String module = unquote(text(bytes, child.getChildByFieldName("source")));
+                    List<Reference> exportBindings = new ArrayList<>();
                     for (TSNode spec : descendants(child)) if (spec.getType().equals("export_specifier")) {
                         String local = text(bytes, spec.getChildByFieldName("name"));
                         String alias = text(bytes, spec.getChildByFieldName("alias"));
                         if (alias.isEmpty()) alias = local;
+                        exportBindings.add(new Reference("binding", alias, "", -1));
                         if (module.isEmpty()) exports.put(alias, local);
                         else {
                             String key = "@reexport:" + alias;
                             bindings.put(key, new ModuleBinding(module, local)); exports.put(alias, key);
                         }
                     }
+                    parts.add(new Part(commentStart(child), child.getEndByte(), "export_binding", "", "", -1,
+                            List.of(), false, exportBindings, List.of()));
                 }
             } else add(child, commentStart(child), "", false, bytes, parts);
         }

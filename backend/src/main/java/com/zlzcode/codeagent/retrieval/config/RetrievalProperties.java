@@ -27,7 +27,7 @@ public record RetrievalProperties(
         @DefaultValue("source-v1") String sourceTemplateVersion,
         @DefaultValue("description-v1") String descriptionTemplateVersion,
         @DefaultValue("selection-v1") String selectionTemplateVersion,
-        @DefaultValue("structure-v1") String structureVersion,
+        @DefaultValue("structure-v2") String structureVersion,
         @DefaultValue("lexical-v1") String lexicalVersion,
         @DefaultValue("Retrieve repository source code and documentation relevant to the question.") String queryInstruction,
         @Positive @DefaultValue("1048576") int maxFileBytes,
