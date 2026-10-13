@@ -22,7 +22,7 @@ public final class RelationExpansionService {
             }
             for (Reference reference : source.references()) {
                 if (category == 1 && reference.kind().equals("type")) {
-                    for (Target target : resolve(file, reference.name(), view, 0, new HashSet<>())) {
+                    for (Target target : resolve(file, reference.name(), view, 0, new HashSet<>(), new ArrayList<>())) {
                         offer(target.chunk(), "context", "explicit_type", source, scope, primaryIds, added);
                         if (isType(target.declaration())) for (Chunk field : target.file().chunks())
                             if (field.kind().equals("field") && field.owner().equals(ownerName(target.declaration())))
@@ -50,8 +50,18 @@ public final class RelationExpansionService {
                                 }
                             }
                         }
-                    } else for (Target target : resolve(file, reference.name(), view, 0, new HashSet<>()))
-                        offer(target.chunk(), "context", "direct_call", source, scope, primaryIds, added);
+                    } else {
+                        List<Chunk> bindings = new ArrayList<>();
+                        List<Target> targets = resolve(file, reference.name(), view, 0, new HashSet<>(), bindings);
+                        /*
+                         * 背景：相对模块别名可定位目标，但只返回调用和目标原文无法证明二者如何连接。
+                         * 设计意图：沿同一次有界声明解析收集 import/export 的独立源码范围，作为互补依据。
+                         * 关键约束：仅在唯一目标解析成功后提交绑定材料，不遍历新增材料的调用；否则会交付误绑定或扩大为无界图探索。
+                         */
+                        if (!targets.isEmpty()) for (Chunk binding : bindings)
+                            offer(binding, "context", "relative_binding", source, scope, primaryIds, added);
+                        for (Target target : targets) offer(target.chunk(), "context", "direct_call", source, scope, primaryIds, added);
+                    }
                 }
             }
         }
@@ -76,7 +86,7 @@ public final class RelationExpansionService {
         roles.add(role); relations.add(relation);
         added.put(target.id(), new Candidate(target, List.copyOf(roles), List.copyOf(relations)));
     }
-    private List<Target> resolve(FileRecord file, String name, View view, int depth, Set<String> visited) {
+    private List<Target> resolve(FileRecord file, String name, View view, int depth, Set<String> visited, List<Chunk> bindings) {
         if (file.language().equals("java")) return type(file, name, view);
         if (depth >= 8 || !visited.add(file.path() + "#" + name)) return List.of();
         List<Target> local = view.targets.stream().filter(t -> t.file().path().equals(file.path()) && t.declaration().name().equals(name)).toList();
@@ -93,7 +103,11 @@ public final class RelationExpansionService {
         }
         if (possible.size() != 1) return List.of();
         FileRecord target = possible.getFirst(); String exported = target.exports().get(binding.exportedName());
-        return exported == null ? List.of() : resolve(target, exported, view, depth + 1, visited);
+        if (exported == null) return List.of();
+        file.chunks().stream().filter(c -> c.kind().equals("import") && c.references().stream().anyMatch(r -> r.name().equals(name))).forEach(bindings::add);
+        target.chunks().stream().filter(c -> c.kind().equals("export_binding")
+                && c.references().stream().anyMatch(r -> r.name().equals(binding.exportedName()))).forEach(bindings::add);
+        return resolve(target, exported, view, depth + 1, visited, bindings);
     }
     private List<Target> type(FileRecord file, String raw, View view) {
         String name = raw.replaceAll("<.*>|\\[\\]", "").strip();

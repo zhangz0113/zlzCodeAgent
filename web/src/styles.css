@@ -2353,3 +2353,7 @@ button:disabled {
     transition-duration: 0.01ms !important;
   }
 }
+.repositoryIndexWorkspace { font-size: 13px; overflow-wrap: anywhere; }
+.repositoryIndexProgress { font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.repositoryIndexButton { display: inline-flex; align-items: center; gap: 8px; margin-top: 8px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: inherit; cursor: pointer; }
+.repositoryIndexButton:disabled { opacity: .55; cursor: default; }

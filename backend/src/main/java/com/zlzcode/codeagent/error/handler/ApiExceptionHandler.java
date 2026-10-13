@@ -20,6 +20,18 @@ import org.springframework.web.server.ServerWebInputException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    @ExceptionHandler(com.zlzcode.codeagent.retrieval.exception.RetrievalException.class)
+    public ResponseEntity<ApiErrorResponse> handleRetrieval(com.zlzcode.codeagent.retrieval.exception.RetrievalException exception) {
+        HttpStatus status = switch (exception.reason()) {
+            case DISABLED -> HttpStatus.SERVICE_UNAVAILABLE;
+            case NOT_READY, BUSY, NEEDS_PREPARE, SOURCE_CHANGED -> HttpStatus.CONFLICT;
+            case DEPENDENCY_FAILED, RESPONSE_INVALID -> HttpStatus.BAD_GATEWAY;
+            case TIMEOUT -> HttpStatus.GATEWAY_TIMEOUT;
+            case BUDGET_EXCEEDED -> HttpStatus.UNPROCESSABLE_ENTITY;
+            case SCAN_FAILED, SYNC_FAILED -> HttpStatus.INTERNAL_SERVER_ERROR;
+        };
+        return response(status, exception.code(), exception.getMessage(), exception.retryable());
+    }
 
     @ExceptionHandler(WebExchangeBindException.class)
     public ResponseEntity<ApiErrorResponse> handleValidation(WebExchangeBindException exception) {

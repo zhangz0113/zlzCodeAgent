@@ -100,6 +100,11 @@ public final class EvidenceModelClient {
             for (Candidate candidate : group == 0 ? primary : expansion.candidates()) {
                 if (submittedPoints.contains(candidate.chunk().id())) continue;
                 Chunk chunk = candidate.chunk();
+                /*
+                 * 背景：模型复制长 UUID 时可能出错，造成正常候选选材协议失败。
+                 * 设计意图：本次请求使用短标识映射到原候选，持久化 point 身份保持稳定。
+                 * 关键约束：映射只能包含实际提交项且逐次重建，未知标识必须拒绝；否则可能交付未提供给模型的源码。
+                 */
                 String selectionId = "C" + (submitted.size() + 1);
                 Map<String, Object> item = Map.of("id", selectionId, "path", chunk.path(), "range", chunk.range(),
                         "source", chunk.source(), "kind", chunk.kind(), "name", chunk.name(), "owner", chunk.owner(),

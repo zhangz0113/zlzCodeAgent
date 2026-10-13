@@ -1,5 +1,19 @@
 export type ThemePreference = 'light' | 'dark' | 'system'
 
+export interface RetrievalIndexStatus {
+  enabled: boolean
+  state: 'UNPREPARED' | 'READY' | 'NEEDS_PREPARE' | 'FAILED'
+  operation: 'NONE' | 'PREPARE' | 'SEARCH'
+  stage: 'IDLE' | 'SCANNING' | 'BUILDING' | 'SYNCING' | 'RETRIEVING' | 'SELECTING' | 'ASSEMBLING'
+  processedFiles: number
+  totalFiles?: number | null
+  indexedFiles: number
+  skippedFiles: number
+  chunkCount: number
+  lastSuccessAt?: string | null
+  error?: { code: string; message: string } | null
+}
+
 export const MAX_PROMPT_LENGTH = 20_000
 export const MAX_INTERVENTION_LENGTH = 4_000
 
