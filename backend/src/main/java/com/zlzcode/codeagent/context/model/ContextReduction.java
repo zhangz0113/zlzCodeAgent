@@ -106,6 +106,7 @@ public final class ContextReduction {
         GREP_MATCHES,
         GLOB_PATHS,
         OVERVIEW_ENTRIES,
+        REPOSITORY_EVIDENCE,
         TOOL_ARGUMENTS,
         GENERIC_TEXT
     }
@@ -115,6 +116,7 @@ public final class ContextReduction {
         MATCH("match"),
         PATH("path"),
         ENTRY("entry"),
+        EVIDENCE("evidence"),
         CHARACTER("character");
 
         private final String value;

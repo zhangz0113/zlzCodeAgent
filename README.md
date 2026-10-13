@@ -1,5 +1,27 @@
 # CodeAgent
 
+## 仓库代码检索
+
+代码检索默认关闭。启用时，在启动后端的环境中配置以下变量；密钥只保存在本机环境，不写入源码：
+
+```powershell
+$env:RETRIEVAL_ENABLED = 'true'
+$env:RETRIEVAL_QWEN_API_KEY = '<your-qwen-api-key>'
+$env:RETRIEVAL_DEEPSEEK_API_KEY = '<your-deepseek-api-key>'
+$env:RETRIEVAL_QDRANT_URL = 'https://<your-qdrant-host>'
+$env:RETRIEVAL_QDRANT_API_KEY = '<your-qdrant-api-key>'
+```
+
+Qdrant 需支持命名向量、BM25 推理和 Query API 的三路 prefetch/RRF（已验证 1.19.2）。默认 embedding 为千问 `qwen3.7-text-embedding-flash`、1024 维；说明生成和源码选材使用 DeepSeek `deepseek-flash`。地址、模型和预算可通过 `codeagent.retrieval` 配置。启动不联网建库。
+
+启动前后端并选择工作区，在“设置 → 代码检索索引”点击“准备索引”。面板展示阶段、文件进度与失败原因。首次准备完成后，Agent 可用 `repository_search` 根据完整业务问题检索原文；例如“商品搜索的价格上下限在哪里处理？只填一个边界时会执行什么条件？”。已知文件窗口继续使用 read，精确正则使用 grep，路径枚举使用 glob。
+
+准备和搜索沿用工作区授权与根 ignore 规则，排除依赖、构建和运行产物；纳入 Java、JS/TS/TSX、文档及常见配置，默认单文件上限 1 MiB。纳入的源码和有限背景会发送给配置的模型服务，并写入该工作区的 Qdrant collection。索引记录默认位于 `workspaces/retrieval-index/`（启动目录为 backend），可用 `RETRIEVAL_STORAGE_DIR` 更换。
+
+每次搜索前按文件哈希同步变化；大批量修改后可提前点击“更新索引”。未准备、忙、需重建、服务失败和源码版本变化均明确报错。返回的是当前文件的真实字节范围和原文，只有最终交付文件计入本 Run 的读取观察；修改仍经过既有版本检查与审批。历史证据缩减后可通过已有 `read_tool_result` 按 evidence 项取回，取回历史不会授予新 Run 编辑资格。
+
+授权工作区的两个接口为：`POST /api/workspaces/{workspaceId}/retrieval-index/prepare`（接受返回 202），`GET /api/workspaces/{workspaceId}/retrieval-index`（状态查询）。索引按工作区隔离，配置需要重建时通过同一准备入口更新；工具内部固定执行混合召回、一轮关系扩展和一次源码选材。
+
 CodeAgent 正在整理为单一 Git 仓库，包含两个独立的应用目录：
 
 - `backend`：Java 21、Spring Boot 和 Maven 后端。

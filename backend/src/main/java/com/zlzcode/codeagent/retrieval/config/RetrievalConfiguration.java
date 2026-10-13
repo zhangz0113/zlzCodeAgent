@@ -10,6 +10,12 @@ import reactor.core.scheduler.Schedulers;
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(RetrievalProperties.class)
 public class RetrievalConfiguration {
+    @Bean
+    com.zlzcode.codeagent.tool.registry.ToolRegistration repositorySearchRegistration(
+            com.zlzcode.codeagent.retrieval.definition.RepositorySearchToolDefinition definition,
+            com.zlzcode.codeagent.retrieval.handler.RepositorySearchToolHandler handler, RetrievalProperties properties) {
+        return new com.zlzcode.codeagent.tool.registry.ToolRegistration(definition, handler, properties.enabled());
+    }
     @Bean(destroyMethod = "dispose")
     Scheduler retrievalScheduler() { return Schedulers.newBoundedElastic(4, 64, "retrieval"); }
     @Bean

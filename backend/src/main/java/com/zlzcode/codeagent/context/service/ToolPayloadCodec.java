@@ -30,6 +30,7 @@ final class ToolPayloadCodec {
             case "grep" -> PayloadKind.GREP_MATCHES;
             case "glob" -> PayloadKind.GLOB_PATHS;
             case "workspace_overview" -> PayloadKind.OVERVIEW_ENTRIES;
+            case "repository_search" -> PayloadKind.REPOSITORY_EVIDENCE;
             default -> PayloadKind.GENERIC_TEXT;
         };
         try {
@@ -106,6 +107,14 @@ final class ToolPayloadCodec {
         }
         int requested = Math.min(limit, payload.total() - offset);
         int count = fittingContentCount(payload, offset, requested, maxChars);
+        if (kind == PayloadKind.REPOSITORY_EVIDENCE && requested > 0 && count == 0) {
+            /*
+             * 背景：历史证据可能遇到后来调小的取回预算，一整项已无法容纳。
+             * 设计意图：明确报范围/预算不兼容，不返回看似成功却 nextOffset 不变的分页。
+             * 关键约束：有剩余证据时每次取回必须推进；允许零进度会让 read_tool_result 无限循环。
+             */
+            throw new IllegalArgumentException("Evidence item exceeds current retrieval budget");
+        }
         int nextOffset = offset + count;
         return new Page(
                 payload.unit(),
@@ -285,6 +294,7 @@ final class ToolPayloadCodec {
         result.put("total", payload.total());
         result.put("complete", nextOffset >= payload.total());
         result.set(payload.field(), payload.pageNode(offset, count));
+        if (payload.unit() == PayloadUnit.EVIDENCE) result.setAll(payload.metadata);
         return result;
     }
 
@@ -299,6 +309,7 @@ final class ToolPayloadCodec {
                         root.get("paths"), PayloadUnit.PATH, "paths");
                 case OVERVIEW_ENTRIES -> arrayPayload(
                         root.get("entries"), PayloadUnit.ENTRY, "entries");
+                case REPOSITORY_EVIDENCE -> evidencePayload(root);
                 case TOOL_ARGUMENTS, GENERIC_TEXT -> null;
             };
         } catch (JsonProcessingException exception) {
@@ -312,6 +323,15 @@ final class ToolPayloadCodec {
         ArrayNode lines = objectMapper.createArrayNode();
         content.asText().lines().forEach(lines::add);
         return new SemanticPayload(PayloadUnit.LINE, "lines", lines, true);
+    }
+
+    private SemanticPayload evidencePayload(JsonNode root) {
+        if (!root.path("ok").asBoolean() || !root.path("evidence").isArray()
+                || !root.path("scope").isObject() || !root.path("limits").isObject()) return null;
+        SemanticPayload payload = new SemanticPayload(PayloadUnit.EVIDENCE, "evidence", (ArrayNode) root.path("evidence"), false);
+        payload.metadata.set("scope", root.path("scope"));
+        payload.metadata.set("limits", root.path("limits"));
+        return payload;
     }
 
     private SemanticPayload grepPayload(JsonNode root) {
@@ -370,6 +390,7 @@ final class ToolPayloadCodec {
         private final String field;
         private final ArrayNode items;
         private final boolean joinLines;
+        private final ObjectNode metadata = objectMapper.createObjectNode();
 
         private SemanticPayload(
                 PayloadUnit unit,
@@ -403,6 +424,11 @@ final class ToolPayloadCodec {
         }
 
         private String pageContent(int offset, int count) {
+            if (unit == PayloadUnit.EVIDENCE) {
+                ObjectNode page = metadata.deepCopy();
+                page.set(field, pageNode(offset, count));
+                return encode(page);
+            }
             if (!joinLines) return encode(pageNode(offset, count));
             List<String> lines = new ArrayList<>(count);
             for (int index = offset; index < offset + count; index++) {

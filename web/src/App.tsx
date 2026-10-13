@@ -16,6 +16,7 @@ import { useEffect, useReducer, useRef, useState } from 'react'
 import { createAgentGateway } from './agent-gateway'
 import { Conversation } from './components/Conversation'
 import { Modal } from './components/Modal'
+import { RepositoryIndexPanel } from './components/RepositoryIndexPanel'
 import { Sidebar } from './components/Sidebar'
 import {
   createId,
@@ -661,6 +662,7 @@ export default function App() {
       {settingsOpen && (
         <Modal onClose={() => setSettingsOpen(false)} title="设置">
           <div className="settingsGrid">
+            <RepositoryIndexPanel key={activeWorkspace?.id ?? 'no-workspace'} workspace={activeWorkspace} gateway={gateway} />
             <section className="settingsSection">
               <h3>Agent 连接</h3>
               <div className="settingsFields">

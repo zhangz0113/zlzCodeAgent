@@ -90,7 +90,7 @@ public final class RepositorySearchService {
     private Scope scope(AuthorizedWorkspace workspace, Request request) {
         String path = request.path() == null ? "" : request.path();
         try { path = guard.relativePath(workspace.root(), guard.resolveExisting(workspace.root(), path)); }
-        catch (IOException exception) { throw new IllegalArgumentException("检索路径不存在或不可访问"); }
+        catch (IOException exception) { throw new java.io.UncheckedIOException(exception); }
         return new Scope(path, request.languages() == null ? List.of() : List.copyOf(new LinkedHashSet<>(request.languages())));
     }
     public static void validate(Request request) {

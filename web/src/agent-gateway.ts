@@ -9,6 +9,7 @@ import {
   type OpenAIModel,
   type RunIntervention,
   type RunRequest,
+  type RetrievalIndexStatus,
   type Session,
   type TaskPlan,
   type ToolStep,
@@ -23,6 +24,8 @@ export interface AgentGateway {
   readonly label: string
   listModels(connection: OpenAIConnectionInput, signal: AbortSignal): Promise<OpenAIModel[]>
   pickWorkspace(): Promise<Workspace | null>
+  getRetrievalIndex(workspaceId: string, signal: AbortSignal): Promise<RetrievalIndexStatus>
+  prepareRetrievalIndex(workspaceId: string, signal: AbortSignal): Promise<RetrievalIndexStatus>
   createSession(workspaceId: string): Promise<Session>
   readSession(sessionId: string): Promise<Session>
   listMemories(workspaceId: string): Promise<MemoryEntry[]>
@@ -409,6 +412,38 @@ export class HttpAgentGateway implements AgentGateway {
 
   private endpoint(path: string): string {
     return `${this.baseUrl}${path}`
+  }
+
+  async getRetrievalIndex(workspaceId: string, signal: AbortSignal): Promise<RetrievalIndexStatus> {
+    return this.retrievalIndex(workspaceId, false, signal)
+  }
+
+  async prepareRetrievalIndex(workspaceId: string, signal: AbortSignal): Promise<RetrievalIndexStatus> {
+    return this.retrievalIndex(workspaceId, true, signal)
+  }
+
+  private async retrievalIndex(workspaceId: string, prepare: boolean, signal: AbortSignal): Promise<RetrievalIndexStatus> {
+    const action = prepare ? '准备代码索引' : '读取代码索引状态'
+    const response = await apiFetch(this.endpoint(
+      `/api/workspaces/${encodeURIComponent(workspaceId)}/retrieval-index${prepare ? '/prepare' : ''}`,
+    ), { method: prepare ? 'POST' : 'GET', headers: { Accept: 'application/json' }, signal }, action)
+    if (!response.ok) throw await apiError(response, action)
+    const value = jsonRecord(await response.json())
+    const states = ['UNPREPARED', 'READY', 'NEEDS_PREPARE', 'FAILED']
+    const operations = ['NONE', 'PREPARE', 'SEARCH']
+    const stages = ['IDLE', 'SCANNING', 'BUILDING', 'SYNCING', 'RETRIEVING', 'SELECTING', 'ASSEMBLING']
+    const error = value?.error == null ? null : jsonRecord(value.error)
+    if (!value || typeof value.enabled !== 'boolean' || typeof value.state !== 'string' || !states.includes(value.state)
+      || typeof value.operation !== 'string' || !operations.includes(value.operation)
+      || typeof value.stage !== 'string' || !stages.includes(value.stage)
+      || ['processedFiles', 'indexedFiles', 'skippedFiles', 'chunkCount'].some(key =>
+        typeof value[key] !== 'number' || !Number.isSafeInteger(value[key]) || (value[key] as number) < 0)
+      || (value.totalFiles != null && (typeof value.totalFiles !== 'number' || !Number.isSafeInteger(value.totalFiles) || value.totalFiles < 0))
+      || (value.lastSuccessAt != null && timestamp(value.lastSuccessAt) === undefined)
+      || (value.error != null && (!error || requiredString(error.code) === undefined || requiredString(error.message) === undefined))) {
+      throw new AgentGatewayError(`${action}失败：Java 后端返回了无效索引状态`, { code: 'RETRIEVAL_RESPONSE_INVALID', retryable: false })
+    }
+    return value as unknown as RetrievalIndexStatus
   }
 
   async listModels(
