@@ -58,6 +58,24 @@ public final class QdrantIndexClient {
         if (!result.isArray()) throw RetrievalException.invalid();
         return result;
     }
+    public JsonNode query(String collection, List<Double> vector, String question,
+            com.zlzcode.codeagent.retrieval.model.RepositorySearch.Scope scope, Lease lease) {
+        List<Map<String, Object>> must = new ArrayList<>();
+        if (!scope.path().isEmpty()) must.add(Map.of("should", List.of(
+                Map.of("key", "path", "match", Map.of("value", scope.path())),
+                Map.of("key", "ancestor_dirs", "match", Map.of("value", scope.path())))));
+        if (!scope.languages().isEmpty()) must.add(Map.of("key", "language", "match", Map.of("any", scope.languages())));
+        Map<String, Object> filter = Map.of("must", must);
+        List<Map<String, Object>> prefetch = List.of(
+                Map.of("query", vector, "using", "source_dense", "filter", filter, "limit", properties.channelCandidates()),
+                Map.of("query", vector, "using", "description_dense", "filter", filter, "limit", properties.channelCandidates()),
+                Map.of("query", lexical(question), "using", "lexical_sparse", "filter", filter, "limit", properties.channelCandidates()));
+        JsonNode result = request(HttpMethod.POST, collection, "/points/query", Map.of("prefetch", prefetch,
+                "query", Map.of("fusion", "rrf"), "limit", properties.primaryCandidates(), "with_payload", true, "with_vector", false), lease)
+                .path("result").path("points");
+        if (!result.isArray()) throw RetrievalException.invalid();
+        return result;
+    }
     public static Map<String, Object> lexical(String raw) {
         return Map.of("text", SourceChunkService.lexicalText(raw), "model", "qdrant/bm25", "options",
                 Map.of("tokenizer", "multilingual", "stemmer", Map.of("type", "none"), "stopwords", Map.of()));
