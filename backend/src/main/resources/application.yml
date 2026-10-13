@@ -20,6 +20,13 @@ logging:
       total-size-cap: 50MB
 
 codeagent:
+  retrieval:
+    enabled: ${RETRIEVAL_ENABLED:false}
+    storage-dir: ${RETRIEVAL_STORAGE_DIR:../workspaces/retrieval-index}
+    qwen-api-key: ${RETRIEVAL_QWEN_API_KEY:}
+    qdrant-url: ${RETRIEVAL_QDRANT_URL:}
+    qdrant-api-key: ${RETRIEVAL_QDRANT_API_KEY:}
+    deepseek-api-key: ${RETRIEVAL_DEEPSEEK_API_KEY:}
   memory:
     state-file: ${CODEAGENT_MEMORY_STATE_FILE:../memories/memories.json}
     max-entries: 1000
