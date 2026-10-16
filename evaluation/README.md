@@ -1,6 +1,6 @@
 # 评测资产维护
 
-评测执行器位于 `backend/src/main/java/com/zlzcode/codeagent/evaluation/`，案例包位于本目录。两者在同一仓库交付；案例包是执行器读取的正式输入，包含题目、独立验收和参考答案，不要求使用模块测试分支才能运行。构建、环境准备和 CLI 命令见[根 README](../README.md#evaluation-hmall-capability-cases)。
+评测执行器位于 `backend/src/main/java/com/zlzcode/codeagent/evaluation/`，案例包位于本目录。两者在同一仓库交付；案例包是执行器读取的正式输入，包含题目、独立验收和参考答案，不要求使用模块测试分支才能运行。应用启动方式见[根 README](../README.md#快速开始)。
 
 ## 目录职责
 
